@@ -1,0 +1,87 @@
+<Window x:Class="WitherChat.Views.ModerationDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource Moderation}"
+        Icon="/Assets/WitherChat.ico"
+        Width="500"
+        Height="370"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource AppBackground}"
+        Foreground="{DynamicResource PrimaryText}"
+        FontFamily="{DynamicResource AppFontFamily}"
+        FontWeight="{DynamicResource AppFontWeight}">
+    <Grid Background="{DynamicResource AppBackground}" Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="18" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="TitleText" Style="{StaticResource SectionTitleTextStyle}" />
+
+        <Border Grid.Row="2" Style="{StaticResource GlassCardStyle}" Padding="22">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="14" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="8" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="8" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel x:Name="DurationPanel" Orientation="Horizontal">
+                    <TextBlock Text="{DynamicResource DurationMinutes}"
+                               Width="150"
+                               Style="{StaticResource CaptionTextStyle}"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="DurationMinutesText" Width="150" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="2"
+                           Text="{DynamicResource Reason}"
+                           Style="{StaticResource CaptionTextStyle}" />
+                <Grid Grid.Row="4" Height="86">
+                    <TextBox x:Name="ReasonText"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalContentAlignment="Top"
+                             VerticalScrollBarVisibility="Auto"
+                             MaxLength="500"
+                             Padding="13,11,13,22"
+                             TextChanged="ReasonText_TextChanged" />
+                    <TextBlock x:Name="ReasonPlaceholder"
+                               Text="{DynamicResource ReasonOptional}"
+                               Foreground="{DynamicResource MutedText}"
+                               IsHitTestVisible="False"
+                               Margin="14,11,14,0"
+                               VerticalAlignment="Top" />
+                    <TextBlock x:Name="ReasonCountText"
+                               Text="0 / 500"
+                               Foreground="{DynamicResource MutedText}"
+                               FontSize="11"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Bottom"
+                               Margin="0,0,12,7" />
+                </Grid>
+                <TextBlock x:Name="ErrorText"
+                           Grid.Row="6"
+                           Foreground="{DynamicResource DangerBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed" />
+            </Grid>
+        </Border>
+
+        <WrapPanel Grid.Row="4" HorizontalAlignment="Right">
+            <Button Content="{DynamicResource Cancel}" Click="Cancel_Click" Margin="0,0,8,0" />
+            <Button Content="{DynamicResource ConfirmAction}"
+                    Click="Ok_Click"
+                    Style="{StaticResource PrimaryCapsuleButtonStyle}" />
+        </WrapPanel>
+    </Grid>
+</Window>
