@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12.0</LangVersion>
+    <AssemblyName>WitherChat</AssemblyName>
+    <RootNamespace>WitherChat</RootNamespace>
+    <Company>WitherChat</Company>
+    <Authors>WitherChat</Authors>
+    <Description>WitherChat</Description>
+    <Copyright>WitherChat</Copyright>
+    <ApplicationIcon>Assets\WitherChat.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>WitherChat</Product>
+    <Title>WitherChat</Title>
+    <Version>0.3.0</Version>
+    <FileVersion>0.3.0.0</FileVersion>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
+    <InformationalVersion>0.3.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Assets\WitherChat.ico" />
+    <None Remove="Assets\Fonts\Inter-Variable.ttf" />
+    <Resource Include="Assets\WitherChat.ico" />
+    <Resource Include="Assets\Fonts\Inter-Variable.ttf" />
+    <None Update="Assets\Fonts\OFL-Inter.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

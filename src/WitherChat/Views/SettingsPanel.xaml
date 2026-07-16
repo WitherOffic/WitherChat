@@ -1,0 +1,762 @@
+<UserControl x:Class="WitherChat.Views.SettingsPanel"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:services="clr-namespace:WitherChat.Services"
+        Background="{DynamicResource AppBackground}"
+        Foreground="{DynamicResource PrimaryText}"
+        FontFamily="{DynamicResource AppFontFamily}"
+        FontWeight="{DynamicResource AppFontWeight}">
+    <UserControl.Resources>
+        <Style TargetType="{x:Type ScrollBar}"
+               BasedOn="{StaticResource ChatScrollBarStyle}" />
+        <Style x:Key="SettingsNavItemStyle" TargetType="{x:Type RadioButton}">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryText}" />
+            <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="13,8" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RadioButton}">
+                        <Border x:Name="Chrome"
+                                Background="Transparent"
+                                CornerRadius="8"
+                                SnapsToDevicePixels="True">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="ActiveBar"
+                                        Grid.Column="0"
+                                        Background="Transparent"
+                                        CornerRadius="2"
+                                        Margin="0,7,0,7" />
+                                <ContentPresenter Grid.Column="1"
+                                                  ContentSource="Content"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Left"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#171A24" />
+                                <Setter TargetName="ActiveBar" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="#F7F8FF" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
+                                <Setter TargetName="Chrome" Property="Opacity" Value="0.6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="{DynamicResource AppBackground}" Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="{DynamicResource Settings}" Style="{StaticResource WindowTitleTextStyle}" />
+            <TextBlock Text="{DynamicResource SettingsIntro}"
+                       Foreground="{DynamicResource SecondaryText}"
+                       Margin="1,6,0,0"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="210" />
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Style="{StaticResource SubtleGlassCardStyle}"
+                    Padding="10"
+                    VerticalAlignment="Stretch">
+                <StackPanel>
+                    <RadioButton x:Name="ProgramNav"
+                                 Content="{DynamicResource Program}"
+                                 GroupName="SettingsSections"
+                                 IsChecked="True"
+                                 Style="{StaticResource SettingsNavItemStyle}" />
+                    <RadioButton x:Name="ChatNav"
+                                 Content="{DynamicResource Chat}"
+                                 GroupName="SettingsSections"
+                                 Style="{StaticResource SettingsNavItemStyle}" />
+                    <RadioButton x:Name="ChatLogsNav"
+                                 Content="{DynamicResource ChatLogs}"
+                                 GroupName="SettingsSections"
+                                 Style="{StaticResource SettingsNavItemStyle}" />
+                    <RadioButton x:Name="ObsOverlayNav"
+                                 Content="{DynamicResource ObsOverlay}"
+                                 GroupName="SettingsSections"
+                                 Style="{StaticResource SettingsNavItemStyle}" />
+                    <RadioButton x:Name="TwitchAccountNav"
+                                 Content="{DynamicResource TwitchAccount}"
+                                 GroupName="SettingsSections"
+                                 Style="{StaticResource SettingsNavItemStyle}" />
+                    <RadioButton x:Name="DonateNav"
+                                 Content="{DynamicResource Donate}"
+                                 GroupName="SettingsSections"
+                                 Style="{StaticResource SettingsNavItemStyle}" />
+                    <RadioButton x:Name="AdvancedNav"
+                                 Content="{DynamicResource Advanced}"
+                                 GroupName="SettingsSections"
+                                 Style="{StaticResource SettingsNavItemStyle}" />
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Column="2">
+                <Border Style="{StaticResource GlassCardStyle}"
+                        Padding="22"
+                        Visibility="{Binding IsChecked, ElementName=ProgramNav, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Program}" Style="{StaticResource SectionTitleTextStyle}" Margin="0,0,0,16" />
+
+                        <TextBlock Text="{DynamicResource Language}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                        <ComboBox x:Name="LanguageCombo"
+                                  Width="240"
+                                  HorizontalAlignment="Left"
+                                  SelectedValue="{Binding Language, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Tag"
+                                  SelectionChanged="LanguageCombo_SelectionChanged">
+                            <ComboBoxItem Content="Русский" Tag="ru-RU" />
+                            <ComboBoxItem Content="English" Tag="en-US" />
+                        </ComboBox>
+
+                        <TextBlock Text="{DynamicResource Theme}" Style="{StaticResource CaptionTextStyle}" Margin="0,18,0,7" />
+                        <ComboBox Width="240"
+                                  HorizontalAlignment="Left"
+                                  SelectedValue="{Binding Theme, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Tag">
+                            <ComboBoxItem Content="{DynamicResource Dark}" Tag="Dark" />
+                            <ComboBoxItem Content="{DynamicResource Light}" Tag="Light" />
+                        </ComboBox>
+
+                        <TextBlock Text="{DynamicResource WindowControlsPosition}"
+                                   Style="{StaticResource CaptionTextStyle}"
+                                   Margin="0,18,0,7" />
+                        <ComboBox Width="240"
+                                  HorizontalAlignment="Left"
+                                  SelectedValue="{Binding WindowControlsPosition, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Tag">
+                            <ComboBoxItem Content="{DynamicResource WindowControlsLeft}" Tag="Left" />
+                            <ComboBoxItem Content="{DynamicResource WindowControlsRight}" Tag="Right" />
+                        </ComboBox>
+
+                        <CheckBox IsChecked="True"
+                                  IsEnabled="False"
+                                  Content="{DynamicResource SoundsDisabled}"
+                                  Margin="0,20,0,0" />
+                        <TextBlock Text="{DynamicResource SoundsHelp}"
+                                   Foreground="{DynamicResource MutedText}"
+                                   FontSize="12"
+                                   Margin="30,6,0,0"
+                                   TextWrapping="Wrap" />
+
+                        <CheckBox IsChecked="{Binding ToastNotifications}"
+                                  Content="{DynamicResource ToastNotifications}"
+                                  Margin="0,18,0,0" />
+                        <CheckBox IsChecked="{Binding AlwaysOnTop}"
+                                  Content="{DynamicResource AlwaysOnTop}"
+                                  Margin="0,14,0,0" />
+                        <TextBlock Text="{DynamicResource AlwaysOnTopHelp}"
+                                   Foreground="{DynamicResource MutedText}"
+                                   FontSize="12"
+                                   Margin="30,6,0,0"
+                                   TextWrapping="Wrap" />
+                        <CheckBox IsChecked="{Binding ReduceMotion}"
+                                  Content="{DynamicResource ReduceMotion}"
+                                  Margin="0,14,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource GlassCardStyle}"
+                        Padding="22"
+                        Visibility="{Binding IsChecked, ElementName=ChatNav, Converter={StaticResource BoolToVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource Chat}" Style="{StaticResource SectionTitleTextStyle}" Margin="0,0,0,16" />
+
+                            <TextBlock Text="{DynamicResource FontSize}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                            <Grid Width="222" MinHeight="36" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="38" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="38" />
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="FontSizeMinusButton"
+                                        Grid.Column="0"
+                                        Content="-"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource NumericStepButtonStyle}"
+                                        Click="FontSizeMinus_Click"
+                                        ToolTip="{DynamicResource DecreaseFont}" />
+                                <TextBox x:Name="FontSizeText"
+                                         Grid.Column="2"
+                                         VerticalAlignment="Center"
+                                         Style="{StaticResource NumericTextBoxStyle}"
+                                         Text="{Binding FontSize, UpdateSourceTrigger=PropertyChanged}"
+                                         PreviewTextInput="NumberOnly_PreviewTextInput"
+                                         PreviewKeyDown="FontSizeText_PreviewKeyDown"
+                                         MouseWheel="FontSizeText_MouseWheel"
+                                         LostFocus="FontSizeText_LostFocus" />
+                                <Button Grid.Column="4"
+                                        Content="+"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource NumericStepButtonStyle}"
+                                        Click="FontSizePlus_Click"
+                                        ToolTip="{DynamicResource IncreaseFont}" />
+                            </Grid>
+
+                            <TextBlock Text="{DynamicResource MessageLimit}" Style="{StaticResource CaptionTextStyle}" Margin="0,18,0,7" />
+                            <Grid Width="222" MinHeight="36" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="38" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="38" />
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="MessageLimitMinusButton"
+                                        Grid.Column="0"
+                                        Content="-"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource NumericStepButtonStyle}"
+                                        Click="MessageLimitMinus_Click"
+                                        ToolTip="{DynamicResource DecreaseMessageLimit}" />
+                                <TextBox x:Name="MessageLimitText"
+                                         Grid.Column="2"
+                                         VerticalAlignment="Center"
+                                         Style="{StaticResource NumericTextBoxStyle}"
+                                         Text="{Binding MessageLimit, UpdateSourceTrigger=PropertyChanged}"
+                                         PreviewTextInput="NumberOnly_PreviewTextInput"
+                                         PreviewKeyDown="MessageLimitText_PreviewKeyDown"
+                                         MouseWheel="MessageLimitText_MouseWheel"
+                                         LostFocus="MessageLimitText_LostFocus" />
+                                <Button Grid.Column="4"
+                                        Content="+"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource NumericStepButtonStyle}"
+                                        Click="MessageLimitPlus_Click"
+                                        ToolTip="{DynamicResource IncreaseMessageLimit}" />
+                            </Grid>
+
+                            <CheckBox IsChecked="{Binding ShowTimestamps}" Content="{DynamicResource ShowTimestamps}" Margin="0,20,0,0" />
+                            <CheckBox IsChecked="{Binding EnableBadges}" Content="{DynamicResource ShowBadges}" Margin="0,12,0,0" />
+                            <CheckBox IsChecked="{Binding EnableTwitchEmotes}" Content="{DynamicResource EnableTwitchEmotes}" Margin="0,12,0,0" />
+                            <CheckBox IsChecked="{Binding EnableBttvEmotes}" Content="{DynamicResource EnableBttvEmotes}" Margin="0,12,0,0" />
+                            <CheckBox IsChecked="{Binding EnableSevenTvEmotes}" Content="{DynamicResource EnableSevenTvEmotes}" Margin="0,12,0,0" />
+                            <CheckBox IsChecked="{Binding ShowChannelPointRedemptions}" Content="{DynamicResource ShowChannelPointRedemptions}" Margin="0,12,0,0" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <Border Style="{StaticResource GlassCardStyle}"
+                        Padding="22"
+                        Visibility="{Binding IsChecked, ElementName=ObsOverlayNav, Converter={StaticResource BoolToVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Padding="0,0,16,0">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource ObsOverlay}" Style="{StaticResource SectionTitleTextStyle}" Margin="0,0,0,16" />
+                            <CheckBox IsChecked="{Binding EnableObsOverlay}" Content="{DynamicResource EnableObsOverlay}" />
+
+                            <TextBlock Text="{DynamicResource OverlayUrl}" Style="{StaticResource CaptionTextStyle}" Margin="0,18,0,7" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding OverlayUrl, Mode=OneWay}"
+                                         IsReadOnly="True" />
+                                <Button x:Name="CopyOverlayUrlButton"
+                                        Grid.Column="2"
+                                        Content="{DynamicResource CopyUrl}"
+                                        Click="CopyOverlayUrl_Click"
+                                        Style="{StaticResource SmallToolButtonStyle}" />
+                            </Grid>
+
+                            <UniformGrid Columns="2" Margin="0,18,0,0">
+                                <StackPanel Margin="0,0,10,12">
+                                    <TextBlock Text="{DynamicResource OverlayPort}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                                    <TextBox Text="{Binding OverlayPort, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="10,0,0,12">
+                                    <TextBlock Text="{DynamicResource OverlayMaxMessages}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                                    <TextBox Text="{Binding OverlayMaxMessages, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,10,12">
+                                    <TextBlock Text="{DynamicResource OverlayFontSize}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                                    <TextBox Text="{Binding OverlayFontSize, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="10,0,0,12">
+                                    <TextBlock Text="{DynamicResource FadeOutSeconds}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                                    <TextBox Text="{Binding OverlayFadeOutSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Text="{DynamicResource FadeOutHint}" Foreground="{DynamicResource MutedText}" FontSize="11" Margin="0,5,0,0" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,10,12">
+                                    <TextBlock Text="{DynamicResource BackgroundOpacity}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                                    <TextBox Text="{Binding OverlayBackgroundOpacity, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="10,0,0,12">
+                                    <TextBlock Text="{DynamicResource Align}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                                    <ComboBox SelectedValue="{Binding OverlayAlign, UpdateSourceTrigger=PropertyChanged}"
+                                              SelectedValuePath="Tag">
+                                        <ComboBoxItem Content="{DynamicResource Left}" Tag="left" />
+                                        <ComboBoxItem Content="{DynamicResource Center}" Tag="center" />
+                                        <ComboBoxItem Content="{DynamicResource Right}" Tag="right" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <WrapPanel Margin="0,4,0,16">
+                                <CheckBox IsChecked="{Binding OverlayShowTimestamps}" Content="{DynamicResource ShowTimestamps}" Margin="0,0,18,10" />
+                                <CheckBox IsChecked="{Binding OverlayShowBadges}" Content="{DynamicResource ShowBadges}" Margin="0,0,18,10" />
+                                <CheckBox IsChecked="{Binding OverlayShowEmotes}" Content="{DynamicResource ShowEmotes}" Margin="0,0,18,10" />
+                                <CheckBox IsChecked="{Binding OverlayTextShadow}" Content="{DynamicResource TextShadow}" Margin="0,0,18,10" />
+                            </WrapPanel>
+
+                            <Button Content="{DynamicResource TestOverlayMessage}"
+                                    Click="TestOverlay_Click"
+                                    Style="{StaticResource PrimaryCapsuleButtonStyle}"
+                                    HorizontalAlignment="Left" />
+                            <TextBlock x:Name="OverlayStatusText"
+                                       Foreground="{DynamicResource SecondaryText}"
+                                       FontSize="12"
+                                       Margin="0,10,0,0"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <Border Style="{StaticResource GlassCardStyle}"
+                        Padding="22"
+                        Visibility="{Binding IsChecked, ElementName=ChatLogsNav, Converter={StaticResource BoolToVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource ChatLogs}" Style="{StaticResource SectionTitleTextStyle}" Margin="0,0,0,16" />
+
+                            <CheckBox IsChecked="{Binding EnableChatLogging}"
+                                      Content="{DynamicResource EnableChatLogging}" />
+                            <TextBlock Text="{DynamicResource LoggingEnabled}"
+                                       Foreground="{DynamicResource MutedText}"
+                                       FontSize="12"
+                                       Margin="30,6,0,18"
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Text="{DynamicResource LogsFolder}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding ChatLogsFolder, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button Grid.Column="2"
+                                        Content="{DynamicResource OpenLogsFolder}"
+                                        Click="OpenLogsFolder_Click"
+                                        Style="{StaticResource SmallToolButtonStyle}" />
+                            </Grid>
+                            <TextBlock x:Name="ChatLogsFolderHint"
+                                       Foreground="{DynamicResource MutedText}"
+                                       FontSize="12"
+                                       Margin="0,7,0,18"
+                                       TextWrapping="Wrap" />
+
+                            <UniformGrid Columns="2">
+                                <CheckBox IsChecked="{Binding SaveChatLogTxt}" Content="{DynamicResource SaveTxt}" Margin="0,0,0,12" />
+                                <CheckBox IsChecked="{Binding LogChatBadges}" Content="{DynamicResource LogBadges}" Margin="0,0,18,12" />
+                                <CheckBox IsChecked="{Binding LogChannelPointRedemptions}" Content="{DynamicResource LogChannelPointRedemptions}" Margin="0,0,18,12" />
+                            </UniformGrid>
+
+                            <TextBlock Text="{DynamicResource DailyLogDescription}"
+                                       Foreground="{DynamicResource MutedText}"
+                                       FontSize="12"
+                                       Margin="0,2,0,12"
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Text="{DynamicResource MaxLogViewerMessages}" Style="{StaticResource CaptionTextStyle}" Margin="0,8,0,7" />
+                            <TextBox Width="180"
+                                     HorizontalAlignment="Left"
+                                     Text="{Binding MaxLogViewerMessages, UpdateSourceTrigger=LostFocus}"
+                                     PreviewTextInput="NumberOnly_PreviewTextInput" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <Border Style="{StaticResource GlassCardStyle}"
+                        Padding="22"
+                        Visibility="{Binding IsChecked, ElementName=TwitchAccountNav, Converter={StaticResource BoolToVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource TwitchAccount}" Style="{StaticResource SectionTitleTextStyle}" Margin="0,0,0,16" />
+
+                            <TextBlock Text="{DynamicResource CurrentMode}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                            <TextBlock x:Name="CurrentModeText"
+                                       Foreground="{DynamicResource SecondaryText}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,16" />
+
+                            <TextBlock Text="{DynamicResource SettingsAvailableWithoutTwitch}"
+                                       Foreground="{DynamicResource MutedText}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,16"
+                                       Visibility="{Binding IsNotSignedIn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}" />
+
+                            <Border Style="{StaticResource SubtleGlassCardStyle}"
+                                    Padding="14"
+                                    Margin="0,0,0,16"
+                                    Visibility="{Binding IsNotSignedIn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Guest}"
+                                               Foreground="{DynamicResource PrimaryText}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="{DynamicResource TwitchNotConnected}"
+                                               Foreground="{DynamicResource MutedText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource SubtleGlassCardStyle}"
+                                    Padding="14"
+                                    Margin="0,0,0,16"
+                                    Visibility="{Binding IsSignedIn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="48" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid Width="40" Height="40">
+                                        <Ellipse Visibility="{Binding ShowAccountProfileImage, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}">
+                                            <Ellipse.Fill>
+                                                <ImageBrush ImageSource="{Binding AccountProfileImageUrl, RelativeSource={RelativeSource AncestorType=UserControl}}" Stretch="UniformToFill" />
+                                            </Ellipse.Fill>
+                                        </Ellipse>
+                                        <Border Background="#26FFFFFF"
+                                                BorderBrush="{DynamicResource BorderBrushSoft}"
+                                                BorderThickness="1"
+                                                CornerRadius="20"
+                                                Visibility="{Binding ShowAccountAvatarInitial, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="{Binding AccountAvatarInitial, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                       FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+                                    </Grid>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding AccountDisplayName, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                   Foreground="{DynamicResource PrimaryText}"
+                                                   FontSize="15"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding AccountLogin, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat=@{0}}"
+                                                   Foreground="{DynamicResource MutedText}"
+                                                   Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource SubtleGlassCardStyle}"
+                                    Padding="14"
+                                    Margin="0,0,0,16"
+                                    Visibility="{Binding IsReadOnlyMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource WatchOnlyMode}"
+                                               Foreground="{DynamicResource PrimaryText}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding ReadOnlyChannelLabel, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                               Foreground="{DynamicResource MutedText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <WrapPanel>
+                                <Button Content="{DynamicResource LogoutTwitch}"
+                                        Click="Logout_Click"
+                                        Style="{StaticResource DangerCapsuleButtonStyle}"
+                                        Margin="0,0,8,8"
+                                        Visibility="{Binding IsSignedIn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}" />
+                                <Button Content="{DynamicResource SignInWithTwitch}"
+                                        Click="SignIn_Click"
+                                        Style="{StaticResource PrimaryCapsuleButtonStyle}"
+                                        Margin="0,0,8,8"
+                                        Visibility="{Binding IsNotSignedIn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}" />
+                                <Button Content="{DynamicResource DisconnectFromChannel}"
+                                        Click="Logout_Click"
+                                        Style="{StaticResource DangerCapsuleButtonStyle}"
+                                        Margin="0,0,8,8"
+                                        Visibility="{Binding IsReadOnlyMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}" />
+                            </WrapPanel>
+
+                            <TextBlock Text="{DynamicResource LastReadOnlyChannel}"
+                                       Style="{StaticResource CaptionTextStyle}"
+                                       Margin="0,16,0,7"
+                                       Visibility="{Binding IsNotSignedIn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}" />
+                            <Grid Visibility="{Binding IsNotSignedIn, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding LastReadOnlyChannel, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button x:Name="WatchChannelButton"
+                                        Grid.Column="2"
+                                        Click="ChangeWatchChannel_Click"
+                                        Style="{StaticResource SmallToolButtonStyle}" />
+                            </Grid>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <Border Style="{StaticResource GlassCardStyle}"
+                        Padding="22"
+                        Visibility="{Binding IsChecked, ElementName=DonateNav, Converter={StaticResource BoolToVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource SupportDeveloper}"
+                                       Style="{StaticResource SectionTitleTextStyle}"
+                                       Margin="0,0,0,8" />
+                            <TextBlock Text="{DynamicResource SupportDeveloperDescription}"
+                                       Foreground="{DynamicResource SecondaryText}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,18" />
+
+                            <UniformGrid Columns="2" Margin="0,0,0,14">
+                                <Button Style="{StaticResource DonationCardButtonStyle}"
+                                        Tag="Boosty"
+                                        Click="SupportLink_Click"
+                                        Margin="0,0,6,6">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Boosty}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Static services:DonationService.BoostyUrl}"
+                                                   Foreground="{DynamicResource MutedText}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" />
+                                        <TextBlock Text="{DynamicResource Open}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,7,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource DonationCardButtonStyle}"
+                                        Tag="DonationAlerts"
+                                        Click="SupportLink_Click"
+                                        Margin="6,0,0,6">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource DonationAlerts}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Static services:DonationService.DonationAlertsUrl}"
+                                                   Foreground="{DynamicResource MutedText}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" />
+                                        <TextBlock Text="{DynamicResource Open}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,7,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource DonationCardButtonStyle}"
+                                        Tag="Twitch"
+                                        Click="SupportLink_Click"
+                                        Margin="0,6,6,0">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Twitch}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Static services:DonationService.TwitchUrl}"
+                                                   Foreground="{DynamicResource MutedText}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" />
+                                        <TextBlock Text="{DynamicResource Open}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,7,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource DonationCardButtonStyle}"
+                                        Tag="YouTube"
+                                        Click="SupportLink_Click"
+                                        Margin="6,6,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource YouTube}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Static services:DonationService.YouTubeUrl}"
+                                                   Foreground="{DynamicResource MutedText}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" />
+                                        <TextBlock Text="{DynamicResource Open}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,7,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource DonationCardButtonStyle}"
+                                        Tag="Steam"
+                                        Click="SupportLink_Click"
+                                        Margin="0,6,6,0">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Steam}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Static services:DonationService.SteamUrl}"
+                                                   Foreground="{DynamicResource MutedText}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" />
+                                        <TextBlock Text="{DynamicResource Open}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,7,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource DonationCardButtonStyle}"
+                                        Tag="Telegram"
+                                        Click="SupportLink_Click"
+                                        Margin="6,6,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Telegram}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Static services:DonationService.TelegramUrl}"
+                                                   Foreground="{DynamicResource MutedText}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" />
+                                        <TextBlock Text="{DynamicResource Open}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,7,0,0" />
+                                    </StackPanel>
+                                </Button>
+                            </UniformGrid>
+
+                            <Button x:Name="CopyUsdtTrc20Button"
+                                    Style="{StaticResource DonationCardButtonStyle}"
+                                    Tag="USDT_TRC20"
+                                    Click="CopyCryptoAddress_Click"
+                                    Margin="0,0,0,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource UsdtTrc20}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Static services:DonationService.UsdtTrc20Address}"
+                                                   Foreground="{DynamicResource SecondaryText}"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,12,0" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{DynamicResource Copy}"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
+                            <Button x:Name="CopyUsdtTonButton"
+                                    Style="{StaticResource DonationCardButtonStyle}"
+                                    Tag="USDT_TON"
+                                    Click="CopyCryptoAddress_Click">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource UsdtTon}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Static services:DonationService.UsdtTonAddress}"
+                                                   Foreground="{DynamicResource SecondaryText}"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,12,0" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{DynamicResource Copy}"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <Border Style="{StaticResource GlassCardStyle}"
+                        Padding="22"
+                        Visibility="{Binding IsChecked, ElementName=AdvancedNav, Converter={StaticResource BoolToVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource Advanced}" Style="{StaticResource SectionTitleTextStyle}" Margin="0,0,0,14" />
+                            <TextBlock Text="{DynamicResource AdvancedIntro}"
+                                       Foreground="{DynamicResource SecondaryText}"
+                                       LineHeight="19"
+                                       Margin="0,0,0,22"
+                                       TextWrapping="Wrap" />
+
+                            <CheckBox Content="{DynamicResource UseCustomClientId}"
+                                      IsChecked="{Binding UseCustomClientId}"
+                                      Margin="0,0,0,4" />
+                            <StackPanel Visibility="{Binding UseCustomClientId, Converter={StaticResource BoolToVisibility}}" Margin="0,12,0,4">
+                                <TextBlock Text="{DynamicResource CustomClientId}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
+                                <TextBox Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <TextBlock Text="{DynamicResource OAuthRedirectUri}" Style="{StaticResource CaptionTextStyle}" Margin="0,18,0,7" />
+                            <TextBox Text="{Binding RedirectUri, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="{DynamicResource RedirectHelp}"
+                                       Foreground="{DynamicResource MutedText}"
+                                       FontSize="12"
+                                       LineHeight="18"
+                                       Margin="0,10,0,0"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <TextBlock Grid.Row="4"
+                   Text="{DynamicResource VersionLine}"
+                   Foreground="{DynamicResource MutedText}"
+                   FontSize="11"
+                   VerticalAlignment="Center" />
+
+        <WrapPanel Grid.Row="4" HorizontalAlignment="Right">
+            <TextBlock x:Name="SettingsStatusText"
+                       Foreground="{DynamicResource SecondaryText}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,14,0" />
+            <Button Content="{DynamicResource Cancel}" Click="Cancel_Click" Margin="0,0,8,0" />
+            <Button Content="{DynamicResource Save}"
+                    Click="Save_Click"
+                    Style="{StaticResource PrimaryCapsuleButtonStyle}" />
+        </WrapPanel>
+    </Grid>
+</UserControl>
+

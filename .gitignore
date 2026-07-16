@@ -7,3 +7,11 @@ obj/
 *.rsuser
 
 artifacts/
+
+# Local WitherChat user data and diagnostics
+settings.json
+token.dat
+chat_logs/
+logs/
+*.log
+*.tmp
