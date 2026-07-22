@@ -3,12 +3,14 @@ using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using WitherChat.Controls;
 using WitherChat.Models;
@@ -30,6 +32,22 @@ public enum ActiveOverlayPanel
 
 public partial class MainWindow : Window
 {
+    public static readonly DependencyProperty IsCompactChatModeProperty = DependencyProperty.Register(
+        nameof(IsCompactChatMode),
+        typeof(bool),
+        typeof(MainWindow),
+        new PropertyMetadata(false));
+
+    private const double NormalMinimumWidth = 860;
+    private const double NormalMinimumHeight = 560;
+    private const double CompactMinimumWidth = 280;
+    private const double CompactMinimumHeight = 180;
+    private const double CompactDefaultWidth = 360;
+    private const double CompactDefaultHeight = 320;
+    private const string CompactIconGeometry =
+        "M2,2 L7,7 M7,3 V7 H3 M18,2 L13,7 M13,3 V7 H17 M2,18 L7,13 M3,13 H7 V17 M18,18 L13,13 M17,13 H13 V17";
+    private const string RestoreIconGeometry =
+        "M7,7 L2,2 M2,6 V2 H6 M13,7 L18,2 M14,2 H18 V6 M7,13 L2,18 M2,14 V18 H6 M13,13 L18,18 M14,18 H18 V14";
     private const double FollowBottomThreshold = 32;
     private const double SmoothScrollDurationMs = 170;
     private const double SmoothScrollMaxFrameStepMs = 34;
@@ -67,7 +85,9 @@ public partial class MainWindow : Window
     private bool _shutdownComplete;
     private bool _exitRequested;
     private bool _trayNoticeShown;
+    private bool _windowTransitionInProgress;
     private TrayIconService? _trayIcon;
+    private HwndSource? _windowSource;
     private Task? _initializationTask;
     private ActiveOverlayPanel _activeOverlay = ActiveOverlayPanel.None;
     private readonly SemaphoreSlim _overlayTransitionGate = new(1, 1);
@@ -81,6 +101,11 @@ public partial class MainWindow : Window
     private long _channelSwitcherTransitionVersion;
     private int _headerPanelAnimationVersion;
     private int _composerPanelAnimationVersion;
+    private bool _suppressPanelToggleAnimations;
+    private bool _normalHeaderExpanded = true;
+    private bool _normalComposerExpanded = true;
+    private Rect _normalWindowBounds;
+    private WindowState _normalWindowState = WindowState.Normal;
 #if DEBUG
     private readonly DispatcherTimer _scrollDiagnosticsTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private long _debugCollectionChanges;
@@ -114,6 +139,19 @@ public partial class MainWindow : Window
         SizeChanged += (_, _) => UpdateOverlayPanelSize();
     }
 
+    public bool IsCompactChatMode
+    {
+        get => (bool)GetValue(IsCompactChatModeProperty);
+        private set => SetValue(IsCompactChatModeProperty, value);
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        _windowSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+        _windowSource?.AddHook(WindowMessageHook);
+    }
+
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         // Keep the root window fully rendered during startup. A whole-window
@@ -144,7 +182,7 @@ public partial class MainWindow : Window
 
         if (e.ClickCount == 2)
         {
-            ToggleWindowMaximized();
+            _ = ToggleWindowMaximizedAsync();
             return;
         }
 
@@ -176,18 +214,239 @@ public partial class MainWindow : Window
 
     private void CloseTitleBarButton_Click(object sender, RoutedEventArgs e) => Close();
 
-    private void MinimizeTitleBarButton_Click(object sender, RoutedEventArgs e) =>
-        WindowState = WindowState.Minimized;
+    private async void MinimizeTitleBarButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_windowTransitionInProgress || WindowState == WindowState.Minimized)
+        {
+            return;
+        }
 
-    private void MaximizeTitleBarButton_Click(object sender, RoutedEventArgs e) => ToggleWindowMaximized();
+        _windowTransitionInProgress = true;
+        try
+        {
+            await AnimationService.AnimateWindowCloseAsync(this, offsetY: 8).ConfigureAwait(true);
+            WindowState = WindowState.Minimized;
+        }
+        finally
+        {
+            AnimationService.ResetWindowVisuals(this);
+            _windowTransitionInProgress = false;
+        }
+    }
 
-    private void ToggleWindowMaximized() =>
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private async void MaximizeTitleBarButton_Click(object sender, RoutedEventArgs e) =>
+        await ToggleWindowMaximizedAsync().ConfigureAwait(true);
+
+    private async Task ToggleWindowMaximizedAsync()
+    {
+        if (_windowTransitionInProgress || WindowState == WindowState.Minimized)
+        {
+            return;
+        }
+
+        _windowTransitionInProgress = true;
+        try
+        {
+            await AnimationService.AnimateWindowStateChangeAsync(
+                    this,
+                    () => WindowState = WindowState == WindowState.Maximized
+                        ? WindowState.Normal
+                        : WindowState.Maximized)
+                .ConfigureAwait(true);
+        }
+        finally
+        {
+            AnimationService.ResetWindowVisuals(this);
+            _windowTransitionInProgress = false;
+        }
+    }
+
+    private IntPtr WindowMessageHook(
+        IntPtr hwnd,
+        int message,
+        IntPtr wParam,
+        IntPtr lParam,
+        ref bool handled)
+    {
+        if (message != NativeMethods.WmGetMinMaxInfo || lParam == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        var monitor = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MonitorDefaultToNearest);
+        if (monitor == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        var monitorInfo = new NativeMethods.MonitorInfo
+        {
+            Size = Marshal.SizeOf<NativeMethods.MonitorInfo>()
+        };
+        if (!NativeMethods.GetMonitorInfo(monitor, ref monitorInfo))
+        {
+            return IntPtr.Zero;
+        }
+
+        var bounds = NativeMethods.IsTaskbarAutoHidden()
+            ? monitorInfo.Monitor
+            : monitorInfo.WorkArea;
+        var minMaxInfo = Marshal.PtrToStructure<NativeMethods.MinMaxInfo>(lParam);
+        minMaxInfo.MaxPosition.X = bounds.Left - monitorInfo.Monitor.Left;
+        minMaxInfo.MaxPosition.Y = bounds.Top - monitorInfo.Monitor.Top;
+        minMaxInfo.MaxSize.X = bounds.Right - bounds.Left;
+        minMaxInfo.MaxSize.Y = bounds.Bottom - bounds.Top;
+        minMaxInfo.MaxTrackSize = minMaxInfo.MaxSize;
+        Marshal.StructureToPtr(minMaxInfo, lParam, fDeleteOld: false);
+        handled = true;
+        return IntPtr.Zero;
+    }
+
+    private void CompactModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsCompactChatMode)
+        {
+            ExitCompactMode();
+        }
+        else
+        {
+            EnterCompactMode();
+        }
+    }
+
+    private void EnterCompactMode()
+    {
+        _normalWindowState = WindowState;
+        _normalWindowBounds = WindowState == WindowState.Normal
+            ? new Rect(Left, Top, ActualWidth, ActualHeight)
+            : RestoreBounds;
+        _normalHeaderExpanded = HeaderPanelToggle.IsChecked == true;
+        _normalComposerExpanded = ComposerPanelToggle.IsChecked == true;
+        IsCompactChatMode = true;
+
+        if (WindowState != WindowState.Normal)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        SetPanelsForCompactMode();
+        ChatLayoutRoot.Margin = new Thickness(4, 46, 4, 4);
+        ChatPanel.Padding = new Thickness(4);
+        MinWidth = CompactMinimumWidth;
+        MinHeight = CompactMinimumHeight;
+        Width = CompactDefaultWidth;
+        Height = CompactDefaultHeight;
+        KeepCompactWindowOnScreen();
+        UpdateCompactModeButton();
+    }
+
+    private void ExitCompactMode()
+    {
+        IsCompactChatMode = false;
+        HeaderPanelToggleHost.Visibility = Visibility.Visible;
+        ComposerPanelToggleHost.Visibility = Visibility.Visible;
+        ChatLayoutRoot.Margin = new Thickness(16, 54, 16, 16);
+        ChatPanel.Padding = new Thickness(8);
+        MinWidth = NormalMinimumWidth;
+        MinHeight = NormalMinimumHeight;
+
+        _suppressPanelToggleAnimations = true;
+        try
+        {
+            HeaderPanelToggle.IsChecked = _normalHeaderExpanded;
+            ComposerPanelToggle.IsChecked = _normalComposerExpanded;
+            ApplyPanelState(HeaderPanel, HeaderPanelChevronRotation, _normalHeaderExpanded, expandedAngle: 0, collapsedAngle: 180);
+            ApplyPanelState(ComposerPanel, ComposerPanelChevronRotation, _normalComposerExpanded, expandedAngle: 0, collapsedAngle: 180);
+        }
+        finally
+        {
+            _suppressPanelToggleAnimations = false;
+        }
+
+        if (!_normalWindowBounds.IsEmpty &&
+            _normalWindowBounds.Width >= NormalMinimumWidth &&
+            _normalWindowBounds.Height >= NormalMinimumHeight)
+        {
+            WindowState = WindowState.Normal;
+            Left = _normalWindowBounds.Left;
+            Top = _normalWindowBounds.Top;
+            Width = _normalWindowBounds.Width;
+            Height = _normalWindowBounds.Height;
+        }
+
+        if (_normalWindowState == WindowState.Maximized)
+        {
+            WindowState = WindowState.Maximized;
+        }
+
+        UpdateCompactModeButton();
+    }
+
+    private void SetPanelsForCompactMode()
+    {
+        _headerPanelAnimationVersion++;
+        _composerPanelAnimationVersion++;
+        _suppressPanelToggleAnimations = true;
+        try
+        {
+            HeaderPanelToggle.IsChecked = false;
+            ComposerPanelToggle.IsChecked = false;
+            ApplyPanelState(HeaderPanel, HeaderPanelChevronRotation, false, expandedAngle: 0, collapsedAngle: 180);
+            ApplyPanelState(ComposerPanel, ComposerPanelChevronRotation, false, expandedAngle: 0, collapsedAngle: 180);
+        }
+        finally
+        {
+            _suppressPanelToggleAnimations = false;
+        }
+
+        HeaderPanelToggleHost.Visibility = Visibility.Collapsed;
+        ComposerPanelToggleHost.Visibility = Visibility.Collapsed;
+    }
+
+    private static void ApplyPanelState(
+        FrameworkElement panel,
+        RotateTransform rotation,
+        bool expanded,
+        double expandedAngle,
+        double collapsedAngle)
+    {
+        panel.BeginAnimation(HeightProperty, null);
+        panel.BeginAnimation(OpacityProperty, null);
+        rotation.BeginAnimation(RotateTransform.AngleProperty, null);
+        panel.Height = double.NaN;
+        panel.Opacity = 1;
+        panel.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        rotation.Angle = expanded ? expandedAngle : collapsedAngle;
+    }
+
+    private void KeepCompactWindowOnScreen()
+    {
+        var workArea = SystemParameters.WorkArea;
+        var sourceBounds = _normalWindowBounds.IsEmpty
+            ? new Rect(Left, Top, Width, Height)
+            : _normalWindowBounds;
+        var centeredLeft = sourceBounds.Left + ((sourceBounds.Width - Width) / 2);
+        var centeredTop = sourceBounds.Top + ((sourceBounds.Height - Height) / 2);
+        Left = Math.Clamp(centeredLeft, workArea.Left, Math.Max(workArea.Left, workArea.Right - Width));
+        Top = Math.Clamp(centeredTop, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - Height));
+    }
+
+    private void UpdateCompactModeButton()
+    {
+        var resourceKey = IsCompactChatMode ? "RestoreFullMode" : "CompactMode";
+        CompactModeIcon.Data = Geometry.Parse(IsCompactChatMode ? RestoreIconGeometry : CompactIconGeometry);
+        CompactModeButton.SetResourceReference(ToolTipService.ToolTipProperty, resourceKey);
+    }
 
     private async void HeaderPanelToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (HeaderPanel is null || HeaderPanelChevronRotation is null)
         {
+            return;
+        }
+        if (_suppressPanelToggleAnimations)
+        {
+            ApplyPanelState(HeaderPanel, HeaderPanelChevronRotation, true, expandedAngle: 0, collapsedAngle: 180);
             return;
         }
         AnimateChevron(HeaderPanelChevronRotation, 0);
@@ -200,6 +459,11 @@ public partial class MainWindow : Window
         {
             return;
         }
+        if (_suppressPanelToggleAnimations)
+        {
+            ApplyPanelState(HeaderPanel, HeaderPanelChevronRotation, false, expandedAngle: 0, collapsedAngle: 180);
+            return;
+        }
         AnimateChevron(HeaderPanelChevronRotation, 180);
         await AnimateCollapsiblePanelAsync(HeaderPanel, false, ++_headerPanelAnimationVersion, () => _headerPanelAnimationVersion);
     }
@@ -210,6 +474,11 @@ public partial class MainWindow : Window
         {
             return;
         }
+        if (_suppressPanelToggleAnimations)
+        {
+            ApplyPanelState(ComposerPanel, ComposerPanelChevronRotation, true, expandedAngle: 0, collapsedAngle: 180);
+            return;
+        }
         AnimateChevron(ComposerPanelChevronRotation, 0);
         await AnimateCollapsiblePanelAsync(ComposerPanel, true, ++_composerPanelAnimationVersion, () => _composerPanelAnimationVersion);
     }
@@ -218,6 +487,11 @@ public partial class MainWindow : Window
     {
         if (ComposerPanel is null || ComposerPanelChevronRotation is null)
         {
+            return;
+        }
+        if (_suppressPanelToggleAnimations)
+        {
+            ApplyPanelState(ComposerPanel, ComposerPanelChevronRotation, false, expandedAngle: 0, collapsedAngle: 180);
             return;
         }
         AnimateChevron(ComposerPanelChevronRotation, 180);
@@ -315,7 +589,24 @@ public partial class MainWindow : Window
         if (!_exitRequested && _trayIcon is not null)
         {
             e.Cancel = true;
-            Hide();
+            if (_windowTransitionInProgress)
+            {
+                return;
+            }
+
+            _windowTransitionInProgress = true;
+            IsEnabled = false;
+            try
+            {
+                await AnimationService.AnimateWindowCloseAsync(this, offsetY: 8).ConfigureAwait(true);
+                Hide();
+            }
+            finally
+            {
+                AnimationService.ResetWindowVisuals(this);
+                IsEnabled = true;
+                _windowTransitionInProgress = false;
+            }
             if (!_trayNoticeShown && _viewModel.Settings.ToastNotifications)
             {
                 _trayNoticeShown = true;
@@ -333,7 +624,19 @@ public partial class MainWindow : Window
 
         _shutdownInProgress = true;
         IsEnabled = false;
-        Hide();
+        try
+        {
+            await AnimationService.AnimateWindowCloseAsync(this, offsetY: 8).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            new FileLogger().Warn($"Window close animation failed: {ex.GetType().Name}");
+        }
+        finally
+        {
+            Hide();
+            AnimationService.ResetWindowVisuals(this);
+        }
         try
         {
             await CancelPendingInteractivePanelAsync().ConfigureAwait(true);
@@ -391,6 +694,8 @@ public partial class MainWindow : Window
         {
             _trayIcon?.Dispose();
             _trayIcon = null;
+            _windowSource?.RemoveHook(WindowMessageHook);
+            _windowSource = null;
             _shutdownComplete = true;
             Close();
         }
@@ -423,12 +728,48 @@ public partial class MainWindow : Window
         Close();
     }
 
+    public void RequestApplicationRestart()
+    {
+        if (_shutdownInProgress || _shutdownComplete)
+        {
+            return;
+        }
+
+        var executable = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executable))
+        {
+            new FileLogger().Error("WitherChat restart failed: executable path is unavailable.");
+            return;
+        }
+
+        try
+        {
+            var startInfo = new ProcessStartInfo(executable)
+            {
+                UseShellExecute = true,
+                WorkingDirectory = AppContext.BaseDirectory
+            };
+            startInfo.ArgumentList.Add("--restart-from");
+            startInfo.ArgumentList.Add(Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+            Process.Start(startInfo);
+            RequestApplicationExit();
+        }
+        catch (Exception ex)
+        {
+            new FileLogger().Error("WitherChat restart failed", ex);
+            SilentDialog.ShowMessage(
+                AppInfo.Name,
+                LocalizationService.Get(_viewModel.Settings.Language, "RestartFailed"));
+        }
+    }
+
     private TrayIconService? TryCreateTrayIcon()
     {
         try
         {
             return new TrayIconService(
                 RestoreFromTray,
+                RequestApplicationRestart,
                 RequestApplicationExit,
                 key => LocalizationService.Get(_viewModel.Settings.Language, key));
         }
@@ -457,6 +798,8 @@ public partial class MainWindow : Window
         }
 
         Activate();
+        AnimationService.ResetWindowVisuals(this);
+        AnimationService.AnimateWindowIn(this, offsetY: 8);
     }
 
     public async Task<SettingsPanelResult?> OpenSettingsPanelAsync(
@@ -2038,5 +2381,78 @@ public partial class MainWindow : Window
         }
 
         return null;
+    }
+
+    private static class NativeMethods
+    {
+        public const int WmGetMinMaxInfo = 0x0024;
+        public const uint MonitorDefaultToNearest = 0x00000002;
+        private const uint AbmGetState = 0x00000004;
+        private const uint AbsAutoHide = 0x00000001;
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo monitorInfo);
+
+        [DllImport("shell32.dll")]
+        private static extern UIntPtr SHAppBarMessage(uint message, ref AppBarData data);
+
+        public static bool IsTaskbarAutoHidden()
+        {
+            var data = new AppBarData
+            {
+                Size = (uint)Marshal.SizeOf<AppBarData>()
+            };
+            return (SHAppBarMessage(AbmGetState, ref data).ToUInt64() & AbsAutoHide) != 0;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct NativePoint
+        {
+            public int X;
+            public int Y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MinMaxInfo
+        {
+            public NativePoint Reserved;
+            public NativePoint MaxSize;
+            public NativePoint MaxPosition;
+            public NativePoint MinTrackSize;
+            public NativePoint MaxTrackSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct NativeRect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        public struct MonitorInfo
+        {
+            public int Size;
+            public NativeRect Monitor;
+            public NativeRect WorkArea;
+            public uint Flags;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct AppBarData
+        {
+            public uint Size;
+            public IntPtr Window;
+            public uint CallbackMessage;
+            public uint Edge;
+            public NativeRect Rect;
+            public IntPtr Parameter;
+        }
     }
 }

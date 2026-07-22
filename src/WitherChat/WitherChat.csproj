@@ -16,11 +16,13 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Product>WitherChat</Product>
     <Title>WitherChat</Title>
-    <Version>0.3.0</Version>
-    <FileVersion>0.3.0.0</FileVersion>
-    <AssemblyVersion>0.3.0.0</AssemblyVersion>
-    <InformationalVersion>0.3.0</InformationalVersion>
+    <Version>0.3.2</Version>
+    <FileVersion>0.3.2.0</FileVersion>
+    <AssemblyVersion>0.3.2.0</AssemblyVersion>
+    <InformationalVersion>0.3.2</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <DebugType>none</DebugType>
@@ -32,8 +34,10 @@
   <ItemGroup>
     <None Remove="Assets\WitherChat.ico" />
     <None Remove="Assets\Fonts\Inter-Variable.ttf" />
+    <None Remove="Assets\Themes\chat_message_torn_black_overlay.png" />
     <Resource Include="Assets\WitherChat.ico" />
     <Resource Include="Assets\Fonts\Inter-Variable.ttf" />
+    <Resource Include="Assets\Themes\chat_message_torn_black_overlay.png" />
     <None Update="Assets\Fonts\OFL-Inter.txt"
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" />

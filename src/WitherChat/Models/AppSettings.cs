@@ -22,9 +22,12 @@ public sealed class AppSettings
     public bool EnableBttvEmotes { get; set; } = true;
     public bool EnableSevenTvEmotes { get; set; } = true;
     public bool ShowChannelPointRedemptions { get; set; } = true;
+    public string MessageVisualTheme { get; set; } = "TornBlack";
     public string Theme { get; set; } = "Dark";
+    public string UiFontFamily { get; set; } = "SegoeUIVariable";
     public string Language { get; set; } = LocalizationService.Russian;
     public string WindowControlsPosition { get; set; } = "Left";
+    public string WindowControlsStyle { get; set; } = "Mac";
     public bool AlwaysOnTop { get; set; }
     public bool ToastNotifications { get; set; } = true;
     public bool ReduceMotion { get; set; }
@@ -38,6 +41,8 @@ public sealed class AppSettings
     public bool OverlayShowEmotes { get; set; } = true;
     public int OverlayFadeOutSeconds { get; set; }
     public bool OverlayTextShadow { get; set; } = true;
+    public bool OverlayTextOutline { get; set; } = true;
+    public bool OverlayDarkBackground { get; set; } = true;
     public double OverlayBackgroundOpacity { get; set; }
     public string OverlayAlign { get; set; } = "left";
     public bool EnableChatLogging { get; set; } = true;
@@ -67,9 +72,12 @@ public sealed class AppSettings
         EnableBttvEmotes = EnableBttvEmotes,
         EnableSevenTvEmotes = EnableSevenTvEmotes,
         ShowChannelPointRedemptions = ShowChannelPointRedemptions,
+        MessageVisualTheme = MessageVisualTheme,
         Theme = Theme,
+        UiFontFamily = UiFontFamily,
         Language = Language,
         WindowControlsPosition = WindowControlsPosition,
+        WindowControlsStyle = WindowControlsStyle,
         AlwaysOnTop = AlwaysOnTop,
         ToastNotifications = ToastNotifications,
         ReduceMotion = ReduceMotion,
@@ -83,6 +91,8 @@ public sealed class AppSettings
         OverlayShowEmotes = OverlayShowEmotes,
         OverlayFadeOutSeconds = OverlayFadeOutSeconds,
         OverlayTextShadow = OverlayTextShadow,
+        OverlayTextOutline = OverlayTextOutline,
+        OverlayDarkBackground = OverlayDarkBackground,
         OverlayBackgroundOpacity = OverlayBackgroundOpacity,
         OverlayAlign = OverlayAlign,
         EnableChatLogging = EnableChatLogging,
@@ -138,11 +148,28 @@ public sealed class AppSettings
 
         FontSize = Math.Clamp(FontSize, 10, 32);
         MessageLimit = MessageLimit is < 100 or > 5000 ? 500 : MessageLimit;
+        MessageVisualTheme = string.Equals(MessageVisualTheme, "TornBlack", StringComparison.OrdinalIgnoreCase)
+            ? "TornBlack"
+            : "Default";
         Theme = string.Equals(Theme, "Light", StringComparison.OrdinalIgnoreCase) ? "Light" : "Dark";
+        UiFontFamily = (UiFontFamily ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "inter" => "Inter",
+            "segoeui" => "SegoeUI",
+            "aptos" => "Aptos",
+            "bahnschrift" => "Bahnschrift",
+            "calibri" => "Calibri",
+            "candara" => "Candara",
+            "trebuchet" => "Trebuchet",
+            _ => "SegoeUIVariable"
+        };
         Language = LocalizationService.NormalizeLanguage(Language);
         WindowControlsPosition = string.Equals(WindowControlsPosition, "Right", StringComparison.OrdinalIgnoreCase)
             ? "Right"
             : "Left";
+        WindowControlsStyle = string.Equals(WindowControlsStyle, "Windows", StringComparison.OrdinalIgnoreCase)
+            ? "Windows"
+            : "Mac";
         OverlayPort = Math.Clamp(OverlayPort, 1024, 65535);
         OverlayMaxMessages = Math.Clamp(OverlayMaxMessages, 1, 100);
         OverlayFontSize = Math.Clamp(OverlayFontSize, 10, 72);

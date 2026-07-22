@@ -130,7 +130,9 @@
                 <Border Style="{StaticResource GlassCardStyle}"
                         Padding="22"
                         Visibility="{Binding IsChecked, ElementName=ProgramNav, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Padding="0,0,16,0">
+                        <StackPanel>
                         <TextBlock Text="{DynamicResource Program}" Style="{StaticResource SectionTitleTextStyle}" Margin="0,0,0,16" />
 
                         <TextBlock Text="{DynamicResource Language}" Style="{StaticResource CaptionTextStyle}" Margin="0,0,0,7" />
@@ -153,6 +155,25 @@
                             <ComboBoxItem Content="{DynamicResource Light}" Tag="Light" />
                         </ComboBox>
 
+                        <TextBlock Text="{DynamicResource UiFontFamily}"
+                                   Style="{StaticResource CaptionTextStyle}"
+                                   Margin="0,18,0,7" />
+                        <ComboBox Width="280"
+                                  HorizontalAlignment="Left"
+                                  SelectedValue="{Binding UiFontFamily, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Tag">
+                            <ComboBoxItem Content="Segoe UI Variable" Tag="SegoeUIVariable" FontFamily="Segoe UI Variable" />
+                            <ComboBoxItem Content="Inter"
+                                          Tag="Inter"
+                                          FontFamily="pack://application:,,,/WitherChat;component/Assets/Fonts/#Inter" />
+                            <ComboBoxItem Content="Segoe UI" Tag="SegoeUI" FontFamily="Segoe UI" />
+                            <ComboBoxItem Content="Aptos" Tag="Aptos" FontFamily="Aptos" />
+                            <ComboBoxItem Content="Bahnschrift" Tag="Bahnschrift" FontFamily="Bahnschrift" />
+                            <ComboBoxItem Content="Calibri" Tag="Calibri" FontFamily="Calibri" />
+                            <ComboBoxItem Content="Candara" Tag="Candara" FontFamily="Candara" />
+                            <ComboBoxItem Content="Trebuchet MS" Tag="Trebuchet" FontFamily="Trebuchet MS" />
+                        </ComboBox>
+
                         <TextBlock Text="{DynamicResource WindowControlsPosition}"
                                    Style="{StaticResource CaptionTextStyle}"
                                    Margin="0,18,0,7" />
@@ -162,6 +183,17 @@
                                   SelectedValuePath="Tag">
                             <ComboBoxItem Content="{DynamicResource WindowControlsLeft}" Tag="Left" />
                             <ComboBoxItem Content="{DynamicResource WindowControlsRight}" Tag="Right" />
+                        </ComboBox>
+
+                        <TextBlock Text="{DynamicResource WindowControlsStyle}"
+                                   Style="{StaticResource CaptionTextStyle}"
+                                   Margin="0,18,0,7" />
+                        <ComboBox Width="240"
+                                  HorizontalAlignment="Left"
+                                  SelectedValue="{Binding WindowControlsStyle, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Tag">
+                            <ComboBoxItem Content="{DynamicResource WindowControlsMac}" Tag="Mac" />
+                            <ComboBoxItem Content="{DynamicResource WindowControlsWindows}" Tag="Windows" />
                         </ComboBox>
 
                         <CheckBox IsChecked="True"
@@ -188,7 +220,8 @@
                         <CheckBox IsChecked="{Binding ReduceMotion}"
                                   Content="{DynamicResource ReduceMotion}"
                                   Margin="0,14,0,0" />
-                    </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Border>
 
                 <Border Style="{StaticResource GlassCardStyle}"
@@ -264,6 +297,22 @@
                                         ToolTip="{DynamicResource IncreaseMessageLimit}" />
                             </Grid>
 
+                            <TextBlock Text="{DynamicResource MessageVisualTheme}"
+                                       Style="{StaticResource CaptionTextStyle}"
+                                       Margin="0,18,0,7" />
+                            <ComboBox Width="240"
+                                      HorizontalAlignment="Left"
+                                      SelectedValue="{Binding MessageVisualTheme, UpdateSourceTrigger=PropertyChanged}"
+                                      SelectedValuePath="Tag">
+                                <ComboBoxItem Content="{DynamicResource MessageThemeDefault}" Tag="Default" />
+                                <ComboBoxItem Content="{DynamicResource MessageThemeTornBlack}" Tag="TornBlack" />
+                            </ComboBox>
+                            <TextBlock Text="{DynamicResource MessageVisualThemeHelp}"
+                                       Foreground="{DynamicResource MutedText}"
+                                       FontSize="11"
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap" />
+
                             <CheckBox IsChecked="{Binding ShowTimestamps}" Content="{DynamicResource ShowTimestamps}" Margin="0,20,0,0" />
                             <CheckBox IsChecked="{Binding EnableBadges}" Content="{DynamicResource ShowBadges}" Margin="0,12,0,0" />
                             <CheckBox IsChecked="{Binding EnableTwitchEmotes}" Content="{DynamicResource EnableTwitchEmotes}" Margin="0,12,0,0" />
@@ -338,6 +387,8 @@
                                 <CheckBox IsChecked="{Binding OverlayShowBadges}" Content="{DynamicResource ShowBadges}" Margin="0,0,18,10" />
                                 <CheckBox IsChecked="{Binding OverlayShowEmotes}" Content="{DynamicResource ShowEmotes}" Margin="0,0,18,10" />
                                 <CheckBox IsChecked="{Binding OverlayTextShadow}" Content="{DynamicResource TextShadow}" Margin="0,0,18,10" />
+                                <CheckBox IsChecked="{Binding OverlayTextOutline}" Content="{DynamicResource TextOutline}" Margin="0,0,18,10" />
+                                <CheckBox IsChecked="{Binding OverlayDarkBackground}" Content="{DynamicResource DarkMessageBackground}" Margin="0,0,18,10" />
                             </WrapPanel>
 
                             <Button Content="{DynamicResource TestOverlayMessage}"

@@ -18,6 +18,10 @@ public sealed class OverlayServerService : IAsyncDisposable
     private static readonly TimeSpan ResponseWriteTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan RequestShutdownTimeout = TimeSpan.FromSeconds(3);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly Lazy<byte[]> TornBlackBackgroundAsset = new(LoadTornBlackBackgroundAsset);
+    private static readonly Lazy<byte[]> InterFontAsset = new(() => LoadApplicationResource(
+        "assets/fonts/inter-variable.ttf",
+        "The embedded Inter font is missing."));
     private readonly ConcurrentDictionary<Guid, OverlayClient> _clients = new();
     private readonly ConcurrentDictionary<Task, byte> _requestTasks = new();
     private readonly FileLogger _logger;
@@ -101,6 +105,11 @@ public sealed class OverlayServerService : IAsyncDisposable
         }
 
         var dto = CreateMessageDto(message);
+        if (!HasRenderableContent(dto))
+        {
+            return;
+        }
+
         lock (_history)
         {
             _history.Add(dto);
@@ -406,6 +415,22 @@ public sealed class OverlayServerService : IAsyncDisposable
                 case "/overlay/config":
                     await WriteJsonAsync(context.Response, CreateSettingsDto(), cancellationToken).ConfigureAwait(false);
                     break;
+                case "/overlay/assets/message-torn-black.png":
+                    await WriteBytesAsync(
+                            context.Response,
+                            TornBlackBackgroundAsset.Value,
+                            "image/png",
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    break;
+                case "/overlay/assets/inter-variable.ttf":
+                    await WriteBytesAsync(
+                            context.Response,
+                            InterFontAsset.Value,
+                            "font/ttf",
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    break;
                 default:
                     context.Response.StatusCode = 404;
                     await WriteTextAsync(
@@ -692,16 +717,25 @@ public sealed class OverlayServerService : IAsyncDisposable
 
     private OverlayMessageDto CreateMessageDto(ChatMessageModel message)
     {
+        var text = message.IsChannelPointsMessage && !string.IsNullOrWhiteSpace(message.RewardUserInput)
+            ? message.RewardUserInput
+            : message.Text;
         return new OverlayMessageDto(
             message.Id,
             message.TimeText,
             message.Login,
             message.UserLabel,
             string.IsNullOrWhiteSpace(message.Color) ? "#B4B4FF" : message.Color,
-            message.Text,
+            text,
             message.Badges.Select(b => new OverlayBadgeDto(b.SetId, b.Id, b.ImageUrl, b.ToolTip)).ToArray(),
             message.Parts.Select(p => new OverlayPartDto(p.Kind.ToString(), p.Text, p.ImageUrl, p.ToolTip)).ToArray());
     }
+
+    private static bool HasRenderableContent(OverlayMessageDto message) =>
+        !string.IsNullOrWhiteSpace(message.Text) ||
+        message.Parts.Any(part =>
+            !string.IsNullOrWhiteSpace(part.Text) ||
+            !string.IsNullOrWhiteSpace(part.ImageUrl));
 
     private OverlaySettingsDto CreateSettingsDto()
     {
@@ -714,8 +748,14 @@ public sealed class OverlayServerService : IAsyncDisposable
             settings.OverlayShowEmotes,
             settings.OverlayFadeOutSeconds,
             settings.OverlayTextShadow,
+            settings.OverlayTextOutline,
+            settings.OverlayDarkBackground,
             settings.OverlayBackgroundOpacity.ToString("0.###", CultureInfo.InvariantCulture),
-            settings.OverlayAlign);
+            settings.OverlayAlign,
+            string.Equals(settings.MessageVisualTheme, "TornBlack", StringComparison.OrdinalIgnoreCase)
+                ? "torn-black"
+                : "default",
+            GetOverlayFontFamily(settings.UiFontFamily));
     }
 
     private OverlayMessageDto[] GetHistory()
@@ -761,9 +801,15 @@ public sealed class OverlayServerService : IAsyncDisposable
         HttpListenerResponse response,
         string text,
         string contentType,
+        CancellationToken cancellationToken) =>
+        await WriteBytesAsync(response, Encoding.UTF8.GetBytes(text), contentType, cancellationToken).ConfigureAwait(false);
+
+    private static async Task WriteBytesAsync(
+        HttpListenerResponse response,
+        byte[] bytes,
+        string contentType,
         CancellationToken cancellationToken)
     {
-        var bytes = Encoding.UTF8.GetBytes(text);
         response.ContentType = contentType;
         response.Headers["X-Content-Type-Options"] = "nosniff";
         response.Headers["Referrer-Policy"] = "no-referrer";
@@ -774,6 +820,7 @@ public sealed class OverlayServerService : IAsyncDisposable
             response.Headers["Content-Security-Policy"] =
                 "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
                 "img-src 'self' https://static-cdn.jtvnw.net https://cdn.betterttv.net https://cdn.7tv.app; " +
+                "font-src 'self'; " +
                 "connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; " +
                 "base-uri 'none'; form-action 'none'";
         }
@@ -810,6 +857,37 @@ public sealed class OverlayServerService : IAsyncDisposable
         }
     }
 
+    private static byte[] LoadTornBlackBackgroundAsset() =>
+        LoadApplicationResource(
+            "assets/themes/chat_message_torn_black_overlay.png",
+            "The torn black message theme asset is missing.");
+
+    private static byte[] LoadApplicationResource(string key, string missingMessage)
+    {
+        var assembly = typeof(OverlayServerService).Assembly;
+        var resourceName = $"{assembly.GetName().Name}.g.resources";
+        using var manifestStream = assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException("The application resource bundle is missing.");
+        using var resourceSet = new System.Resources.ResourceSet(manifestStream);
+        var stream = resourceSet.GetObject(key, ignoreCase: false) as Stream
+            ?? throw new InvalidOperationException(missingMessage);
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
+    }
+
+    private static string GetOverlayFontFamily(string fontId) => fontId switch
+    {
+        "Inter" => "WitherChat Inter, Inter, Segoe UI, sans-serif",
+        "SegoeUI" => "Segoe UI, sans-serif",
+        "Aptos" => "Aptos, Segoe UI, sans-serif",
+        "Bahnschrift" => "Bahnschrift, Segoe UI, sans-serif",
+        "Calibri" => "Calibri, Segoe UI, sans-serif",
+        "Candara" => "Candara, Segoe UI, sans-serif",
+        "Trebuchet" => "Trebuchet MS, Segoe UI, sans-serif",
+        _ => "Segoe UI Variable, Segoe UI, sans-serif"
+    };
+
     private string BuildOverlayHtml() => OverlayHtml.Replace(
         "__LANG__",
         string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "ru",
@@ -823,12 +901,26 @@ public sealed class OverlayServerService : IAsyncDisposable
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WitherChat Overlay</title>
   <style>
+    @font-face {
+      font-family: "WitherChat Inter";
+      src: url('/overlay/assets/inter-variable.ttf') format('truetype');
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+    }
     :root {
       --font-size: 22px;
-      --bg-opacity: 0;
+      --font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
       --align-items: flex-start;
       --text-align: left;
       --shadow: 0 2px 6px rgba(0, 0, 0, .85);
+      --message-background: linear-gradient(transparent, transparent);
+      --message-theme-image: none;
+      --message-border: 1px solid transparent;
+      --message-box-shadow: none;
+      --message-padding: 8px 12px;
+      --message-width: auto;
+      --message-radius: 16px;
     }
     html, body {
       width: 100%;
@@ -837,7 +929,7 @@ public sealed class OverlayServerService : IAsyncDisposable
       padding: 0;
       overflow: hidden;
       background: transparent;
-      font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+      font-family: var(--font-family);
     }
     #chat {
       box-sizing: border-box;
@@ -853,9 +945,15 @@ public sealed class OverlayServerService : IAsyncDisposable
     .message {
       max-width: 100%;
       box-sizing: border-box;
-      padding: 8px 12px;
-      border-radius: 16px;
-      background: rgba(8, 10, 18, var(--bg-opacity));
+      width: var(--message-width);
+      padding: var(--message-padding);
+      border-radius: var(--message-radius);
+      border: var(--message-border);
+      background-image: var(--message-theme-image), var(--message-background);
+      background-position: center, center;
+      background-repeat: no-repeat, no-repeat;
+      background-size: 100% 100%, 100% 100%;
+      box-shadow: var(--message-box-shadow);
       color: #fff;
       font-size: var(--font-size);
       line-height: 1.28;
@@ -909,8 +1007,12 @@ public sealed class OverlayServerService : IAsyncDisposable
       showEmotes: true,
       fadeOutSeconds: 0,
       textShadow: true,
+      textOutline: true,
+      darkBackground: true,
       backgroundOpacity: '0',
-      align: 'left'
+      align: 'left',
+      messageTheme: 'torn-black',
+      fontFamily: 'Segoe UI Variable, Segoe UI, sans-serif'
     };
 
     const allowedImageHosts = new Set(['static-cdn.jtvnw.net', 'cdn.betterttv.net', 'cdn.7tv.app']);
@@ -926,19 +1028,45 @@ public sealed class OverlayServerService : IAsyncDisposable
 
     function appendImage(parent, className, source, alt) {
       const safeSource = safeImageUrl(source);
-      if (!safeSource) return;
+      if (!safeSource) return false;
       const image = document.createElement('img');
       image.className = className;
       image.src = safeSource;
       image.alt = String(alt ?? '');
       parent.appendChild(image);
+      return true;
     }
 
     function applySettings(next) {
       settings = { ...settings, ...(next || {}) };
       document.documentElement.style.setProperty('--font-size', `${settings.fontSize}px`);
-      document.documentElement.style.setProperty('--bg-opacity', settings.backgroundOpacity);
-      document.documentElement.style.setProperty('--shadow', settings.textShadow ? '0 2px 6px rgba(0, 0, 0, .85)' : 'none');
+      document.documentElement.style.setProperty('--font-family', settings.fontFamily);
+      const requestedOpacity = Number.parseFloat(settings.backgroundOpacity);
+      const backgroundOpacity = Number.isFinite(requestedOpacity) ? Math.min(1, Math.max(0, requestedOpacity)) : 0;
+      const useTornBlackTheme = settings.messageTheme === 'torn-black';
+      const styledOpacity = settings.darkBackground && !useTornBlackTheme ? Math.max(.48, backgroundOpacity) : 0;
+      document.documentElement.style.setProperty(
+        '--message-theme-image',
+        useTornBlackTheme ? "url('/overlay/assets/message-torn-black.png')" : 'none');
+      document.documentElement.style.setProperty('--message-padding', useTornBlackTheme ? '16px 24px 18px' : '8px 12px');
+      document.documentElement.style.setProperty('--message-width', useTornBlackTheme ? '100%' : 'auto');
+      document.documentElement.style.setProperty('--message-radius', useTornBlackTheme ? '0' : '16px');
+      document.documentElement.style.setProperty(
+        '--message-background',
+        settings.darkBackground && !useTornBlackTheme
+          ? `linear-gradient(135deg, rgba(5, 7, 13, ${styledOpacity}), rgba(12, 16, 27, ${Math.min(1, styledOpacity + .1)}))`
+          : 'linear-gradient(transparent, transparent)');
+      document.documentElement.style.setProperty(
+        '--message-border',
+        settings.darkBackground && !useTornBlackTheme ? '1px solid rgba(255, 255, 255, .1)' : '1px solid transparent');
+      document.documentElement.style.setProperty(
+        '--message-box-shadow',
+        settings.darkBackground && !useTornBlackTheme ? '0 8px 22px rgba(0, 0, 0, .28)' : 'none');
+      const dropShadow = settings.textShadow ? '0 2px 6px rgba(0, 0, 0, .9)' : '';
+      const outline = settings.textOutline
+        ? '-1px -1px 0 rgba(0, 0, 0, .95), 1px -1px 0 rgba(0, 0, 0, .95), -1px 1px 0 rgba(0, 0, 0, .95), 1px 1px 0 rgba(0, 0, 0, .95)'
+        : '';
+      document.documentElement.style.setProperty('--shadow', [outline, dropShadow].filter(Boolean).join(', ') || 'none');
       const align = settings.align === 'center' ? 'center' : settings.align === 'right' ? 'flex-end' : 'flex-start';
       document.documentElement.style.setProperty('--align-items', align);
       document.documentElement.style.setProperty('--text-align', settings.align === 'center' ? 'center' : settings.align === 'right' ? 'right' : 'left');
@@ -951,14 +1079,30 @@ public sealed class OverlayServerService : IAsyncDisposable
         return;
       }
 
+      let rendered = false;
       message.parts.forEach(part => {
         const isEmote = part.kind !== 'Text';
         if (settings.showEmotes && isEmote && part.imageUrl) {
-          appendImage(parent, 'emote', part.imageUrl, part.text);
+          if (appendImage(parent, 'emote', part.imageUrl, part.text)) {
+            rendered = true;
+          } else {
+            const fallback = String(part.text ?? '');
+            if (fallback) {
+              parent.appendChild(document.createTextNode(fallback));
+              rendered = true;
+            }
+          }
         } else {
-          parent.appendChild(document.createTextNode(String(part.text ?? '')));
+          const text = String(part.text ?? '');
+          if (text) {
+            parent.appendChild(document.createTextNode(text));
+            rendered = true;
+          }
         }
       });
+      if (!rendered && message.text) {
+        parent.appendChild(document.createTextNode(String(message.text)));
+      }
     }
 
     const seenMessageIds = new Set();
@@ -1075,8 +1219,12 @@ public sealed class OverlayServerService : IAsyncDisposable
         bool ShowEmotes,
         int FadeOutSeconds,
         bool TextShadow,
+        bool TextOutline,
+        bool DarkBackground,
         string BackgroundOpacity,
-        string Align);
+        string Align,
+        string MessageTheme,
+        string FontFamily);
 
     private sealed record OverlayMessageDto(
         string Id,
