@@ -86,11 +86,11 @@ public static class AnimationService
         {
             translate.X = offsetX;
             translate.Y = offsetY;
-            Animate(translate, TranslateTransform.XProperty, 0, 210);
-            Animate(translate, TranslateTransform.YProperty, 0, 210);
+            Animate(translate, TranslateTransform.XProperty, 0, 240);
+            Animate(translate, TranslateTransform.YProperty, 0, 240);
         }
 
-        Animate(window, UIElement.OpacityProperty, 1, 210);
+        Animate(window, UIElement.OpacityProperty, 1, 240);
     }
 
     public static void AnimateDialogIn(Window window)
@@ -108,11 +108,11 @@ public static class AnimationService
         {
             scale.ScaleX = 0.96;
             scale.ScaleY = 0.96;
-            Animate(scale, ScaleTransform.ScaleXProperty, 1, 180);
-            Animate(scale, ScaleTransform.ScaleYProperty, 1, 180);
+            Animate(scale, ScaleTransform.ScaleXProperty, 1, 210);
+            Animate(scale, ScaleTransform.ScaleYProperty, 1, 210);
         }
 
-        Animate(window, UIElement.OpacityProperty, 1, 180);
+        Animate(window, UIElement.OpacityProperty, 1, 210);
     }
 
     public static Task AnimateWindowCloseAsync(Window window, double offsetX = 0, double offsetY = 18)
@@ -125,11 +125,95 @@ public static class AnimationService
         var translate = EnsureTranslateTransform(window.Content as FrameworkElement);
         if (translate is not null)
         {
-            Animate(translate, TranslateTransform.XProperty, offsetX, 140);
-            Animate(translate, TranslateTransform.YProperty, offsetY, 140);
+            Animate(translate, TranslateTransform.XProperty, offsetX, 175);
+            Animate(translate, TranslateTransform.YProperty, offsetY, 175);
         }
 
-        return AnimateAsync(window, UIElement.OpacityProperty, 0, 140);
+        return AnimateAsync(window, UIElement.OpacityProperty, 0, 175);
+    }
+
+    public static async Task AnimateWindowStateChangeAsync(Window window, Action changeState)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        ArgumentNullException.ThrowIfNull(changeState);
+        if (_reduceMotion)
+        {
+            changeState();
+            return;
+        }
+
+        var scale = EnsureScaleTransform(window.Content as FrameworkElement);
+        var fadeTasks = new List<Task>
+        {
+            AnimateAsync(window, UIElement.OpacityProperty, 0.82, 90)
+        };
+        if (scale is not null)
+        {
+            fadeTasks.Add(AnimateAsync(scale, ScaleTransform.ScaleXProperty, 0.992, 90));
+            fadeTasks.Add(AnimateAsync(scale, ScaleTransform.ScaleYProperty, 0.992, 90));
+        }
+
+        await Task.WhenAll(fadeTasks).ConfigureAwait(true);
+        changeState();
+        window.UpdateLayout();
+
+        var restoreTasks = new List<Task>
+        {
+            AnimateAsync(window, UIElement.OpacityProperty, 1, 190)
+        };
+        if (scale is not null)
+        {
+            restoreTasks.Add(AnimateAsync(scale, ScaleTransform.ScaleXProperty, 1, 190));
+            restoreTasks.Add(AnimateAsync(scale, ScaleTransform.ScaleYProperty, 1, 190));
+        }
+
+        await Task.WhenAll(restoreTasks).ConfigureAwait(true);
+        ResetWindowVisuals(window);
+    }
+
+    public static void ResetWindowVisuals(Window window)
+    {
+        window.BeginAnimation(UIElement.OpacityProperty, null);
+        window.Opacity = 1;
+        if (window.Content is not FrameworkElement content)
+        {
+            return;
+        }
+
+        switch (content.RenderTransform)
+        {
+            case TranslateTransform translate:
+                translate.BeginAnimation(TranslateTransform.XProperty, null);
+                translate.BeginAnimation(TranslateTransform.YProperty, null);
+                translate.X = 0;
+                translate.Y = 0;
+                break;
+            case ScaleTransform scale:
+                scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+                scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+                scale.ScaleX = 1;
+                scale.ScaleY = 1;
+                break;
+            case TransformGroup group:
+                foreach (var child in group.Children)
+                {
+                    if (child is TranslateTransform groupTranslate)
+                    {
+                        groupTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+                        groupTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+                        groupTranslate.X = 0;
+                        groupTranslate.Y = 0;
+                    }
+                    else if (child is ScaleTransform groupScale)
+                    {
+                        groupScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+                        groupScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+                        groupScale.ScaleX = 1;
+                        groupScale.ScaleY = 1;
+                    }
+                }
+                break;
+        }
     }
 
     public static void AnimateListBoxItem(ListBoxItem item)
@@ -145,7 +229,7 @@ public static class AnimationService
         if (translate is not null)
         {
             translate.Y = 6;
-            var translateAnimation = CreateAnimation(0, 140);
+            var translateAnimation = CreateAnimation(0, 180);
             translateAnimation.Completed += (_, _) =>
             {
                 translate.BeginAnimation(TranslateTransform.YProperty, null);
@@ -154,7 +238,7 @@ public static class AnimationService
             BeginAnimation(translate, TranslateTransform.YProperty, translateAnimation);
         }
 
-        var opacityAnimation = CreateAnimation(1, 140);
+        var opacityAnimation = CreateAnimation(1, 180);
         opacityAnimation.Completed += (_, _) =>
         {
             item.BeginAnimation(UIElement.OpacityProperty, null);
@@ -174,7 +258,7 @@ public static class AnimationService
             translate.Y = 0;
         }
 
-        var duration = _reduceMotion ? 70 : 210;
+        var duration = _reduceMotion ? 70 : 240;
         var tasks = new List<Task>
         {
             AnimateAsync(scrim, UIElement.OpacityProperty, scrimOpacity, duration),
@@ -203,7 +287,7 @@ public static class AnimationService
     public static Task AnimatePanelOutAsync(UIElement scrim, FrameworkElement panel, double offsetX = 40)
     {
         var translate = EnsureTranslateTransform(panel);
-        var duration = _reduceMotion ? 70 : 150;
+        var duration = _reduceMotion ? 70 : 180;
         var tasks = new List<Task>
         {
             AnimateAsync(scrim, UIElement.OpacityProperty, 0, duration),
@@ -505,7 +589,7 @@ public static class AnimationService
         {
             To = to,
             Duration = TimeSpan.FromMilliseconds(Math.Max(1, milliseconds)),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
         };
     }
 

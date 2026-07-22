@@ -71,6 +71,48 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="WindowsCaptionButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="MinWidth" Value="42" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryText}" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                    <Condition Property="Tag" Value="Close" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Chrome" Property="Background" Value="#FFE81123" />
+                                <Setter Property="Foreground" Value="White" />
+                            </MultiTrigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Opacity" Value="0.7" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="PanelVisibilityToggleStyle" TargetType="{x:Type ToggleButton}">
             <Setter Property="Width" Value="38" />
             <Setter Property="Height" Value="20" />
@@ -126,32 +168,107 @@
                             FlowDirection="{Binding WindowControlsFlowDirection}"
                             VerticalAlignment="Center"
                             Margin="15,0">
-                    <Button Content="×"
+                    <Button Content="x"
                             Background="#FFFF5F57"
                             ToolTip="{DynamicResource Close}"
                             Style="{StaticResource TrafficLightButtonStyle}"
+                            Visibility="{Binding UseMacWindowControls, Converter={StaticResource BoolToVisibility}}"
                             Click="CloseTitleBarButton_Click" />
                     <Button Content="-"
                             Background="#FFFFBD2E"
                             ToolTip="{DynamicResource Minimize}"
                             Style="{StaticResource TrafficLightButtonStyle}"
                             Margin="8,0,0,0"
+                            Visibility="{Binding UseMacWindowControls, Converter={StaticResource BoolToVisibility}}"
                             Click="MinimizeTitleBarButton_Click" />
                     <Button Content="+"
                             Background="#FF28C840"
                             ToolTip="{DynamicResource Maximize}"
                             Style="{StaticResource TrafficLightButtonStyle}"
                             Margin="8,0,0,0"
+                            Visibility="{Binding UseMacWindowControls, Converter={StaticResource BoolToVisibility}}"
                             Click="MaximizeTitleBarButton_Click" />
+
+                    <Button Tag="Close"
+                            ToolTip="{DynamicResource Close}"
+                            Style="{StaticResource WindowsCaptionButtonStyle}"
+                            Visibility="{Binding UseWindowsWindowControls, Converter={StaticResource BoolToVisibility}}"
+                            Click="CloseTitleBarButton_Click">
+                        <Path Width="11"
+                              Height="11"
+                              Data="M1,1 L10,10 M10,1 L1,10"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.25"
+                              StrokeStartLineCap="Square"
+                              StrokeEndLineCap="Square"
+                              Stretch="Uniform" />
+                    </Button>
+                    <Button ToolTip="{DynamicResource Maximize}"
+                            Style="{StaticResource WindowsCaptionButtonStyle}"
+                            Visibility="{Binding UseWindowsWindowControls, Converter={StaticResource BoolToVisibility}}"
+                            Click="MaximizeTitleBarButton_Click">
+                        <Path Width="11"
+                              Height="11"
+                              Data="M1,1 H10 V10 H1 Z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.1"
+                              Stretch="Uniform" />
+                    </Button>
+                    <Button ToolTip="{DynamicResource Minimize}"
+                            Style="{StaticResource WindowsCaptionButtonStyle}"
+                            Visibility="{Binding UseWindowsWindowControls, Converter={StaticResource BoolToVisibility}}"
+                            Click="MinimizeTitleBarButton_Click">
+                        <Path Width="11"
+                              Height="1"
+                              Data="M0,0.5 H11"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.1"
+                              StrokeStartLineCap="Square"
+                              StrokeEndLineCap="Square"
+                              Stretch="Fill" />
+                    </Button>
+                    <Button x:Name="CompactModeButton"
+                            Width="30"
+                            Height="28"
+                            MinHeight="28"
+                            Margin="9,0,0,0"
+                            Padding="0"
+                            ToolTip="{DynamicResource CompactMode}"
+                            Style="{StaticResource IconButtonStyle}"
+                            Click="CompactModeButton_Click">
+                        <Path x:Name="CompactModeIcon"
+                              Width="17"
+                              Height="17"
+                              Data="M2,2 L7,7 M7,3 V7 H3 M18,2 L13,7 M13,3 V7 H17 M2,18 L7,13 M3,13 H7 V17 M18,18 L13,13 M17,13 H13 V17"
+                              Stroke="{DynamicResource SecondaryText}"
+                              StrokeThickness="1.65"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Stretch="Uniform" />
+                    </Button>
                 </StackPanel>
 
-                <TextBlock Text="{DynamicResource AppTitle}"
+                <TextBlock x:Name="WindowTitleText"
+                           Text="{DynamicResource AppTitle}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource SecondaryText}"
                            FontSize="12"
                            FontWeight="SemiBold"
-                           IsHitTestVisible="False" />
+                           IsHitTestVisible="False">
+                    <TextBlock.Style>
+                        <Style TargetType="{x:Type TextBlock}">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCompactChatMode, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                             Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
             </Grid>
         </Border>
 
@@ -191,7 +308,7 @@
             </Ellipse.Fill>
         </Ellipse>
 
-        <Grid Margin="16,54,16,16">
+        <Grid x:Name="ChatLayoutRoot" Margin="16,54,16,16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -453,27 +570,28 @@
                 </Grid>
             </Border>
 
-            <ToggleButton x:Name="HeaderPanelToggle"
-                          Grid.Row="1"
-                          IsChecked="True"
-                          Margin="0,2"
-                          Checked="HeaderPanelToggle_Checked"
-                          Unchecked="HeaderPanelToggle_Unchecked"
-                          Style="{StaticResource PanelVisibilityToggleStyle}">
-                <Grid Width="16" Height="10">
-                    <Path Data="M2,8 L8,2 L14,8"
-                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
-                          StrokeThickness="1.8"
-                          StrokeStartLineCap="Round"
-                          StrokeEndLineCap="Round"
-                          StrokeLineJoin="Round"
-                          RenderTransformOrigin="0.5,0.5">
-                        <Path.RenderTransform>
-                            <RotateTransform x:Name="HeaderPanelChevronRotation" />
-                        </Path.RenderTransform>
-                    </Path>
-                </Grid>
-            </ToggleButton>
+            <Grid x:Name="HeaderPanelToggleHost" Grid.Row="1">
+                <ToggleButton x:Name="HeaderPanelToggle"
+                              IsChecked="True"
+                              Margin="0,2"
+                              Checked="HeaderPanelToggle_Checked"
+                              Unchecked="HeaderPanelToggle_Unchecked"
+                              Style="{StaticResource PanelVisibilityToggleStyle}">
+                    <Grid Width="16" Height="10">
+                        <Path Data="M2,8 L8,2 L14,8"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              RenderTransformOrigin="0.5,0.5">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="HeaderPanelChevronRotation" />
+                            </Path.RenderTransform>
+                        </Path>
+                    </Grid>
+                </ToggleButton>
+            </Grid>
 
             <Border Grid.Row="2"
                     Padding="10">
@@ -543,7 +661,7 @@
                 </WrapPanel>
             </Border>
 
-            <Border Grid.Row="4" Style="{StaticResource GlassCardStyle}" Padding="8">
+            <Border x:Name="ChatPanel" Grid.Row="4" Style="{StaticResource GlassCardStyle}" Padding="8">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -621,13 +739,32 @@
                              VirtualizingPanel.CacheLengthUnit="Page">
                         <ListBox.Resources>
                             <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ChatScrollBarStyle}" />
+                            <ImageBrush x:Key="TornBlackMessageBackgroundBrush"
+                                        ImageSource="/WitherChat;component/Assets/Themes/chat_message_torn_black_overlay.png"
+                                        Stretch="Fill"
+                                        AlignmentX="Center"
+                                        AlignmentY="Center" />
                             <DataTemplate x:Key="ChannelPointsRedemptionTemplate">
-                                <Border Margin="2,3"
-                                        Padding="12,10"
-                                        CornerRadius="12"
-                                        Background="{DynamicResource ButtonBackgroundBrush}"
-                                        BorderBrush="{DynamicResource AccentBrush}"
-                                        BorderThickness="1">
+                                <Border CornerRadius="12">
+                                    <Border.Style>
+                                        <Style TargetType="{x:Type Border}">
+                                            <Setter Property="Margin" Value="2,3" />
+                                            <Setter Property="Padding" Value="12,10" />
+                                            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.UseTornBlackMessageTheme, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                             Value="True">
+                                                    <Setter Property="Margin" Value="0,2,0,4" />
+                                                    <Setter Property="Padding" Value="18,12" />
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Setter Property="BorderBrush" Value="Transparent" />
+                                                    <Setter Property="BorderThickness" Value="0" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="38" />
@@ -651,16 +788,16 @@
                                         </Grid>
                                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                             <TextBlock Text="{Binding RedemptionSummary}"
-                                                       Foreground="{DynamicResource PrimaryText}"
+                                                       Foreground="{Binding DataContext.MessagePrimaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                        FontWeight="SemiBold"
                                                        TextWrapping="Wrap" />
                                             <StackPanel Margin="0,5,0,0"
                                                         Visibility="{Binding HasRewardUserInput, Converter={StaticResource BoolToVisibility}}">
                                                 <TextBlock Text="{Binding RewardUserInputLabel}"
-                                                           Foreground="{DynamicResource MutedText}"
+                                                           Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                            FontSize="11" />
                                                 <TextBlock Text="{Binding RewardUserInput}"
-                                                           Foreground="{DynamicResource PrimaryText}"
+                                                           Foreground="{Binding DataContext.MessagePrimaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ItemsControl ItemsSource="{Binding Parts}" Margin="0,5,0,0">
@@ -713,7 +850,7 @@
                                                                 </ItemsControl.ItemTemplate>
                                                             </ItemsControl>
                                                             <TextBlock Text="{Binding Text}"
-                                                                       Foreground="{DynamicResource SecondaryText}"
+                                                                       Foreground="{Binding DataContext.MessageSecondaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                        Visibility="{Binding HasImage, Converter={StaticResource InverseBoolToVisibility}}">
                                                                 <TextBlock.Style>
                                                                     <Style TargetType="TextBlock">
@@ -738,7 +875,7 @@
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                             <TextBlock Text="{Binding ChannelLogin, StringFormat=@{0}}"
-                                                       Foreground="{DynamicResource MutedText}"
+                                                       Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                        FontSize="10"
                                                        Margin="0,4,0,0" />
                                         </StackPanel>
@@ -761,12 +898,39 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:ChatMessageModel}">
                                 <Grid>
+                                    <Border Margin="0,2,0,4"
+                                            Background="{StaticResource TornBlackMessageBackgroundBrush}"
+                                            IsHitTestVisible="False"
+                                            SnapsToDevicePixels="True"
+                                            RenderOptions.BitmapScalingMode="HighQuality"
+                                            Visibility="{Binding DataContext.UseTornBlackMessageTheme, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
                                     <ContentControl Content="{Binding}"
                                                     ContentTemplate="{StaticResource ChannelPointsRedemptionTemplate}"
                                                     Visibility="{Binding IsChannelPointsRedemption, Converter={StaticResource BoolToVisibility}}" />
-                                <Border Style="{StaticResource MessageCompactRowStyle}"
-                                        Visibility="{Binding IsChannelPointsRedemption, Converter={StaticResource InverseBoolToVisibility}}"
+                                <Border Visibility="{Binding IsChannelPointsRedemption, Converter={StaticResource InverseBoolToVisibility}}"
                                         MouseRightButtonDown="MessageItem_MouseRightButtonDown">
+                                    <Border.Style>
+                                        <Style TargetType="{x:Type Border}" BasedOn="{StaticResource MessageCompactRowStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.UseTornBlackMessageTheme, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                             Value="True">
+                                                    <Setter Property="Padding" Value="18,11" />
+                                                    <Setter Property="Margin" Value="0,2,0,4" />
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Setter Property="BorderBrush" Value="Transparent" />
+                                                </DataTrigger>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Property="IsMouseOver" Value="True" />
+                                                        <Condition Binding="{Binding DataContext.UseTornBlackMessageTheme, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                   Value="True" />
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Setter Property="BorderBrush" Value="Transparent" />
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Border.ContextMenu>
                                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
                                                      Opened="MessageContextMenu_Opened">
@@ -891,12 +1055,12 @@
                                             <TextBlock Text="&#xE8BD;"
                                                        FontFamily="Segoe MDL2 Assets"
                                                        FontSize="11"
-                                                       Foreground="{DynamicResource SecondaryText}"
+                                                       Foreground="{Binding DataContext.MessageSecondaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                        Margin="0,1,6,0"
                                                        DockPanel.Dock="Left" />
                                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                                                 <TextBlock Text="{DynamicResource ReplyingTo}"
-                                                           Foreground="{DynamicResource SecondaryText}"
+                                                           Foreground="{Binding DataContext.MessageSecondaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                            FontSize="11" />
                                                 <TextBlock Text="{Binding ReplyParentUserLabel}"
                                                            Foreground="{DynamicResource AccentBrush}"
@@ -904,21 +1068,25 @@
                                                            FontSize="11"
                                                            Margin="4,0,0,0" />
                                                 <TextBlock Text=":"
-                                                           Foreground="{DynamicResource MutedText}"
+                                                           Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                            FontSize="11"
                                                            Margin="1,0,5,0"
                                                            Visibility="{Binding HasReplyParentMessageBody, Converter={StaticResource BoolToVisibility}}" />
                                             </StackPanel>
                                             <TextBlock Text="{Binding ReplyParentMessageBody}"
-                                                       Foreground="{DynamicResource MutedText}"
+                                                       Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                        FontSize="11"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding ReplyParentMessageBody}" />
                                         </DockPanel>
                                     </Border>
 
-                                    <Grid VerticalAlignment="Center">
-                                        <Grid.ColumnDefinitions>
+                                     <Grid VerticalAlignment="Center">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
@@ -928,7 +1096,7 @@
                                         <TextBlock Text="{Binding TimeText}"
                                                    Grid.Column="0"
                                                    Visibility="{Binding DataContext.ShowTimestamps, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}"
-                                                   Foreground="{DynamicResource MutedText}"
+                                                   Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                    FontSize="11"
                                                    Margin="0,2,8,0"
                                                    VerticalAlignment="Center" />
@@ -986,10 +1154,26 @@
                                                        VerticalAlignment="Center" />
                                         </StackPanel>
 
-                                        <StackPanel Grid.Column="3"
-                                                    HorizontalAlignment="Stretch"
+                                        <StackPanel HorizontalAlignment="Stretch"
                                                     VerticalAlignment="Center"
                                                     Opacity="{Binding ModeratedContentOpacity}">
+                                            <StackPanel.Style>
+                                                <Style TargetType="{x:Type StackPanel}">
+                                                    <Setter Property="Grid.Row" Value="0" />
+                                                    <Setter Property="Grid.Column" Value="3" />
+                                                    <Setter Property="Grid.ColumnSpan" Value="1" />
+                                                    <Setter Property="Margin" Value="0" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsCompactChatMode, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                     Value="True">
+                                                            <Setter Property="Grid.Row" Value="1" />
+                                                            <Setter Property="Grid.Column" Value="0" />
+                                                            <Setter Property="Grid.ColumnSpan" Value="5" />
+                                                            <Setter Property="Margin" Value="0,4,0,0" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
                                             <Button Tag="LongMessageExpansion"
                                                     Click="MessageExpansionButton_Click"
                                                     Style="{StaticResource SmallToolButtonStyle}"
@@ -1000,7 +1184,8 @@
                                                     HorizontalAlignment="Left"
                                                     Focusable="False"
                                                     Visibility="{Binding IsLongMessage, Converter={StaticResource BoolToVisibility}}">
-                                                <TextBlock FontSize="10" Foreground="{DynamicResource SecondaryText}">
+                                                 <TextBlock FontSize="10"
+                                                            Foreground="{Binding DataContext.MessageSecondaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="Text" Value="{DynamicResource ExpandMessage}" />
@@ -1088,7 +1273,7 @@
                                                         </ItemsControl>
                                                         <TextBlock Text="{Binding Text}"
                                                                    MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                   Foreground="{DynamicResource PrimaryText}"
+                                                                   Foreground="{Binding DataContext.MessagePrimaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                    Visibility="{Binding HasImage, Converter={StaticResource InverseBoolToVisibility}}">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
@@ -1125,7 +1310,7 @@
                                                 Margin="7,0,0,0"
                                                 Visibility="{Binding IsModerated, Converter={StaticResource BoolToVisibility}}">
                                             <TextBlock Text="{Binding ModerationStatus}"
-                                                       Foreground="{DynamicResource MutedText}"
+                                                       Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                        FontSize="10" />
                                         </Border>
                                     </Grid>
@@ -1244,28 +1429,29 @@
                 </Grid>
             </Border>
 
-            <ToggleButton x:Name="ComposerPanelToggle"
-                          Grid.Row="5"
-                          IsChecked="True"
-                          Margin="0,2"
-                          Checked="ComposerPanelToggle_Checked"
-                          Unchecked="ComposerPanelToggle_Unchecked"
-                          Style="{StaticResource PanelVisibilityToggleStyle}"
-                          Visibility="{Binding HasActiveChannel, Converter={StaticResource BoolToVisibility}}">
-                <Grid Width="16" Height="10">
-                    <Path Data="M2,2 L8,8 L14,2"
-                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
-                          StrokeThickness="1.8"
-                          StrokeStartLineCap="Round"
-                          StrokeEndLineCap="Round"
-                          StrokeLineJoin="Round"
-                          RenderTransformOrigin="0.5,0.5">
-                        <Path.RenderTransform>
-                            <RotateTransform x:Name="ComposerPanelChevronRotation" />
-                        </Path.RenderTransform>
-                    </Path>
-                </Grid>
-            </ToggleButton>
+            <Grid x:Name="ComposerPanelToggleHost" Grid.Row="5">
+                <ToggleButton x:Name="ComposerPanelToggle"
+                              IsChecked="True"
+                              Margin="0,2"
+                              Checked="ComposerPanelToggle_Checked"
+                              Unchecked="ComposerPanelToggle_Unchecked"
+                              Style="{StaticResource PanelVisibilityToggleStyle}"
+                              Visibility="{Binding HasActiveChannel, Converter={StaticResource BoolToVisibility}}">
+                    <Grid Width="16" Height="10">
+                        <Path Data="M2,2 L8,8 L14,2"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              RenderTransformOrigin="0.5,0.5">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="ComposerPanelChevronRotation" />
+                            </Path.RenderTransform>
+                        </Path>
+                    </Grid>
+                </ToggleButton>
+            </Grid>
 
             <Grid x:Name="ComposerPanel" Grid.Row="6">
             <Border

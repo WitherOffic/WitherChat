@@ -391,6 +391,21 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
 
     public bool AlwaysOnTop => Settings.AlwaysOnTop;
 
+    public bool UseTornBlackMessageTheme =>
+        string.Equals(Settings.MessageVisualTheme, "TornBlack", StringComparison.OrdinalIgnoreCase);
+
+    public Brush MessagePrimaryBrush => UseTornBlackMessageTheme
+        ? Brushes.White
+        : GetApplicationBrush("PrimaryText", Brushes.White);
+
+    public Brush MessageSecondaryBrush => UseTornBlackMessageTheme
+        ? Brushes.LightGray
+        : GetApplicationBrush("SecondaryText", Brushes.LightGray);
+
+    public Brush MessageMutedBrush => UseTornBlackMessageTheme
+        ? Brushes.DarkGray
+        : GetApplicationBrush("MutedText", Brushes.DarkGray);
+
     public HorizontalAlignment WindowControlsAlignment =>
         string.Equals(Settings.WindowControlsPosition, "Right", StringComparison.OrdinalIgnoreCase)
             ? HorizontalAlignment.Right
@@ -400,6 +415,11 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         string.Equals(Settings.WindowControlsPosition, "Right", StringComparison.OrdinalIgnoreCase)
             ? FlowDirection.RightToLeft
             : FlowDirection.LeftToRight;
+
+    public bool UseWindowsWindowControls =>
+        string.Equals(Settings.WindowControlsStyle, "Windows", StringComparison.OrdinalIgnoreCase);
+
+    public bool UseMacWindowControls => !UseWindowsWindowControls;
 
     public ChatConnectionMode ConnectionMode
     {
@@ -1424,8 +1444,14 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(ShowTimestamps));
         OnPropertyChanged(nameof(ShowBadges));
         OnPropertyChanged(nameof(AlwaysOnTop));
+        OnPropertyChanged(nameof(UseTornBlackMessageTheme));
+        OnPropertyChanged(nameof(MessagePrimaryBrush));
+        OnPropertyChanged(nameof(MessageSecondaryBrush));
+        OnPropertyChanged(nameof(MessageMutedBrush));
         OnPropertyChanged(nameof(WindowControlsAlignment));
         OnPropertyChanged(nameof(WindowControlsFlowDirection));
+        OnPropertyChanged(nameof(UseWindowsWindowControls));
+        OnPropertyChanged(nameof(UseMacWindowControls));
         StatusText = L("SettingsSaved");
         await ConfigureOverlayAsync(showErrors: true).ConfigureAwait(true);
         if (HasChatLogSettingsChanged(previous, Settings))
@@ -6630,6 +6656,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
     private void ApplyTheme()
     {
         var dark = !string.Equals(Settings.Theme, "Light", StringComparison.OrdinalIgnoreCase);
+        SetApplicationFont(Settings.UiFontFamily);
         SetBrush("AppBackground", dark ? "#FF07090F" : "#FFE9EDF4");
         SetBrush("PanelBackground", dark ? "#D0101420" : "#F4F7FBFF");
         SetBrush("PanelAltBackground", dark ? "#B8131824" : "#E8EEF6FF");
@@ -6664,6 +6691,25 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
         brush.Freeze();
         return brush;
+    }
+
+    private static Brush GetApplicationBrush(string key, Brush fallback) =>
+        Application.Current?.Resources[key] as Brush ?? fallback;
+
+    private static void SetApplicationFont(string fontId)
+    {
+        var source = fontId switch
+        {
+            "Inter" => "pack://application:,,,/WitherChat;component/Assets/Fonts/#Inter",
+            "SegoeUI" => "Segoe UI",
+            "Aptos" => "Aptos, Segoe UI Variable, Segoe UI",
+            "Bahnschrift" => "Bahnschrift, Segoe UI Variable, Segoe UI",
+            "Calibri" => "Calibri, Segoe UI",
+            "Candara" => "Candara, Segoe UI",
+            "Trebuchet" => "Trebuchet MS, Segoe UI",
+            _ => "Segoe UI Variable, Segoe UI"
+        };
+        Application.Current.Resources["AppFontFamily"] = new FontFamily(source);
     }
 
     private static void SetBrush(string key, string color)
@@ -6712,10 +6758,13 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         target.EnableBttvEmotes = source.EnableBttvEmotes;
         target.EnableSevenTvEmotes = source.EnableSevenTvEmotes;
         target.ShowChannelPointRedemptions = source.ShowChannelPointRedemptions;
+        target.MessageVisualTheme = source.MessageVisualTheme;
         target.EnableBadges = source.EnableBadges;
         target.Theme = source.Theme;
+        target.UiFontFamily = source.UiFontFamily;
         target.Language = source.Language;
         target.WindowControlsPosition = source.WindowControlsPosition;
+        target.WindowControlsStyle = source.WindowControlsStyle;
         target.AlwaysOnTop = source.AlwaysOnTop;
         target.ToastNotifications = source.ToastNotifications;
         target.ReduceMotion = source.ReduceMotion;
@@ -6728,6 +6777,8 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         target.OverlayShowEmotes = source.OverlayShowEmotes;
         target.OverlayFadeOutSeconds = source.OverlayFadeOutSeconds;
         target.OverlayTextShadow = source.OverlayTextShadow;
+        target.OverlayTextOutline = source.OverlayTextOutline;
+        target.OverlayDarkBackground = source.OverlayDarkBackground;
         target.OverlayBackgroundOpacity = source.OverlayBackgroundOpacity;
         target.OverlayAlign = source.OverlayAlign;
         target.EnableChatLogging = source.EnableChatLogging;
