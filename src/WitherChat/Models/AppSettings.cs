@@ -6,6 +6,9 @@ namespace WitherChat.Models;
 public sealed class AppSettings
 {
     public const int CurrentChannelSettingsMigrationVersion = 1;
+    public const int DefaultViewerCountRefreshIntervalSeconds = 30;
+    public const int MinViewerCountRefreshIntervalSeconds = 15;
+    public const int MaxViewerCountRefreshIntervalSeconds = 600;
 
     public bool UseCustomClientId { get; set; }
     public string ClientId { get; set; } = string.Empty;
@@ -17,6 +20,7 @@ public sealed class AppSettings
     public int ChannelSettingsMigrationVersion { get; set; }
     public double FontSize { get; set; } = 17;
     public int MessageLimit { get; set; } = 500;
+    public int ViewerCountRefreshIntervalSeconds { get; set; } = DefaultViewerCountRefreshIntervalSeconds;
     public bool ShowTimestamps { get; set; } = true;
     public bool EnableTwitchEmotes { get; set; } = true;
     public bool EnableBttvEmotes { get; set; } = true;
@@ -67,6 +71,7 @@ public sealed class AppSettings
         ChannelSettingsMigrationVersion = ChannelSettingsMigrationVersion,
         FontSize = FontSize,
         MessageLimit = MessageLimit,
+        ViewerCountRefreshIntervalSeconds = ViewerCountRefreshIntervalSeconds,
         ShowTimestamps = ShowTimestamps,
         EnableTwitchEmotes = EnableTwitchEmotes,
         EnableBttvEmotes = EnableBttvEmotes,
@@ -148,6 +153,10 @@ public sealed class AppSettings
 
         FontSize = Math.Clamp(FontSize, 10, 32);
         MessageLimit = MessageLimit is < 100 or > 5000 ? 500 : MessageLimit;
+        ViewerCountRefreshIntervalSeconds = Math.Clamp(
+            ViewerCountRefreshIntervalSeconds,
+            MinViewerCountRefreshIntervalSeconds,
+            MaxViewerCountRefreshIntervalSeconds);
         MessageVisualTheme = string.Equals(MessageVisualTheme, "TornBlack", StringComparison.OrdinalIgnoreCase)
             ? "TornBlack"
             : "Default";

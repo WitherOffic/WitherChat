@@ -12,7 +12,7 @@
         Height="760"
         MinWidth="860"
         MinHeight="560"
-        WindowStyle="None"
+        WindowStyle="SingleBorderWindow"
         ResizeMode="CanResize"
         Background="{DynamicResource AppBackground}"
         Foreground="{DynamicResource PrimaryText}"
@@ -228,6 +228,7 @@
                               Stretch="Fill" />
                     </Button>
                     <Button x:Name="CompactModeButton"
+                            AutomationProperties.AutomationId="CompactModeButton"
                             Width="30"
                             Height="28"
                             MinHeight="28"
@@ -739,32 +740,13 @@
                              VirtualizingPanel.CacheLengthUnit="Page">
                         <ListBox.Resources>
                             <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ChatScrollBarStyle}" />
-                            <ImageBrush x:Key="TornBlackMessageBackgroundBrush"
-                                        ImageSource="/WitherChat;component/Assets/Themes/chat_message_torn_black_overlay.png"
-                                        Stretch="Fill"
-                                        AlignmentX="Center"
-                                        AlignmentY="Center" />
                             <DataTemplate x:Key="ChannelPointsRedemptionTemplate">
-                                <Border CornerRadius="12">
-                                    <Border.Style>
-                                        <Style TargetType="{x:Type Border}">
-                                            <Setter Property="Margin" Value="2,3" />
-                                            <Setter Property="Padding" Value="12,10" />
-                                            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}" />
-                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                            <Setter Property="BorderThickness" Value="1" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding DataContext.UseTornBlackMessageTheme, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                             Value="True">
-                                                    <Setter Property="Margin" Value="0,2,0,4" />
-                                                    <Setter Property="Padding" Value="18,12" />
-                                                    <Setter Property="Background" Value="Transparent" />
-                                                    <Setter Property="BorderBrush" Value="Transparent" />
-                                                    <Setter Property="BorderThickness" Value="0" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
+                                <Border CornerRadius="12"
+                                        Margin="2,3"
+                                        Padding="12,10"
+                                        Background="{DynamicResource ButtonBackgroundBrush}"
+                                        BorderBrush="{DynamicResource AccentBrush}"
+                                        BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="38" />
@@ -788,16 +770,16 @@
                                         </Grid>
                                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                             <TextBlock Text="{Binding RedemptionSummary}"
-                                                       Foreground="{Binding DataContext.MessagePrimaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                       Foreground="{DynamicResource PrimaryText}"
                                                        FontWeight="SemiBold"
                                                        TextWrapping="Wrap" />
                                             <StackPanel Margin="0,5,0,0"
                                                         Visibility="{Binding HasRewardUserInput, Converter={StaticResource BoolToVisibility}}">
                                                 <TextBlock Text="{Binding RewardUserInputLabel}"
-                                                           Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                           Foreground="{DynamicResource MutedText}"
                                                            FontSize="11" />
                                                 <TextBlock Text="{Binding RewardUserInput}"
-                                                           Foreground="{Binding DataContext.MessagePrimaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                           Foreground="{DynamicResource PrimaryText}"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ItemsControl ItemsSource="{Binding Parts}" Margin="0,5,0,0">
@@ -850,7 +832,7 @@
                                                                 </ItemsControl.ItemTemplate>
                                                             </ItemsControl>
                                                             <TextBlock Text="{Binding Text}"
-                                                                       Foreground="{Binding DataContext.MessageSecondaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                       Foreground="{DynamicResource SecondaryText}"
                                                                        Visibility="{Binding HasImage, Converter={StaticResource InverseBoolToVisibility}}">
                                                                 <TextBlock.Style>
                                                                     <Style TargetType="TextBlock">
@@ -875,7 +857,7 @@
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                             <TextBlock Text="{Binding ChannelLogin, StringFormat=@{0}}"
-                                                       Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                       Foreground="{DynamicResource MutedText}"
                                                        FontSize="10"
                                                        Margin="0,4,0,0" />
                                         </StackPanel>
@@ -893,41 +875,32 @@
                                    BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                 <EventSetter Event="Loaded" Handler="MessageListItem_Loaded" />
                                 <EventSetter Event="Unloaded" Handler="MessageListItem_Unloaded" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                    </Trigger>
+                                </Style.Triggers>
                             </Style>
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:ChatMessageModel}">
                                 <Grid>
-                                    <Border Margin="0,2,0,4"
-                                            Background="{StaticResource TornBlackMessageBackgroundBrush}"
-                                            IsHitTestVisible="False"
-                                            SnapsToDevicePixels="True"
-                                            RenderOptions.BitmapScalingMode="HighQuality"
-                                            Visibility="{Binding DataContext.UseTornBlackMessageTheme, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
                                     <ContentControl Content="{Binding}"
                                                     ContentTemplate="{StaticResource ChannelPointsRedemptionTemplate}"
                                                     Visibility="{Binding IsChannelPointsRedemption, Converter={StaticResource BoolToVisibility}}" />
                                 <Border Visibility="{Binding IsChannelPointsRedemption, Converter={StaticResource InverseBoolToVisibility}}"
                                         MouseRightButtonDown="MessageItem_MouseRightButtonDown">
                                     <Border.Style>
-                                        <Style TargetType="{x:Type Border}" BasedOn="{StaticResource MessageCompactRowStyle}">
+                                        <Style TargetType="{x:Type Border}"
+                                               BasedOn="{StaticResource MessageCompactRowStyle}">
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding DataContext.UseTornBlackMessageTheme, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                <DataTrigger Binding="{Binding IsCompactChatMode, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                              Value="True">
-                                                    <Setter Property="Padding" Value="18,11" />
-                                                    <Setter Property="Margin" Value="0,2,0,4" />
-                                                    <Setter Property="Background" Value="Transparent" />
-                                                    <Setter Property="BorderBrush" Value="Transparent" />
+                                                    <Setter Property="MaxHeight" Value="180" />
+                                                    <Setter Property="ClipToBounds" Value="True" />
+                                                    <Setter Property="Padding" Value="7,5" />
                                                 </DataTrigger>
-                                                <MultiDataTrigger>
-                                                    <MultiDataTrigger.Conditions>
-                                                        <Condition Property="IsMouseOver" Value="True" />
-                                                        <Condition Binding="{Binding DataContext.UseTornBlackMessageTheme, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                   Value="True" />
-                                                    </MultiDataTrigger.Conditions>
-                                                    <Setter Property="Background" Value="Transparent" />
-                                                    <Setter Property="BorderBrush" Value="Transparent" />
-                                                </MultiDataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
@@ -1055,12 +1028,12 @@
                                             <TextBlock Text="&#xE8BD;"
                                                        FontFamily="Segoe MDL2 Assets"
                                                        FontSize="11"
-                                                       Foreground="{Binding DataContext.MessageSecondaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                       Foreground="{DynamicResource SecondaryText}"
                                                        Margin="0,1,6,0"
                                                        DockPanel.Dock="Left" />
                                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                                                 <TextBlock Text="{DynamicResource ReplyingTo}"
-                                                           Foreground="{Binding DataContext.MessageSecondaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                           Foreground="{DynamicResource SecondaryText}"
                                                            FontSize="11" />
                                                 <TextBlock Text="{Binding ReplyParentUserLabel}"
                                                            Foreground="{DynamicResource AccentBrush}"
@@ -1068,13 +1041,13 @@
                                                            FontSize="11"
                                                            Margin="4,0,0,0" />
                                                 <TextBlock Text=":"
-                                                           Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                           Foreground="{DynamicResource MutedText}"
                                                            FontSize="11"
                                                            Margin="1,0,5,0"
                                                            Visibility="{Binding HasReplyParentMessageBody, Converter={StaticResource BoolToVisibility}}" />
                                             </StackPanel>
                                             <TextBlock Text="{Binding ReplyParentMessageBody}"
-                                                       Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                       Foreground="{DynamicResource MutedText}"
                                                        FontSize="11"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding ReplyParentMessageBody}" />
@@ -1095,17 +1068,43 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{Binding TimeText}"
                                                    Grid.Column="0"
-                                                   Visibility="{Binding DataContext.ShowTimestamps, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}"
-                                                   Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                   Foreground="{DynamicResource MutedText}"
                                                    FontSize="11"
                                                    Margin="0,2,8,0"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="{x:Type TextBlock}">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.ShowTimestamps, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     Value="False">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsCompactChatMode, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                     Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
 
                                         <ItemsControl ItemsSource="{Binding Badges}"
                                                       Grid.Column="1"
                                                       Margin="0,0,5,0"
                                                       VerticalAlignment="Center"
                                                       Visibility="{Binding DataContext.ShowBadges, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}">
+                                            <ItemsControl.Style>
+                                                <Style TargetType="{x:Type ItemsControl}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsCompactChatMode, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                     Value="True">
+                                                            <Setter Property="MaxWidth" Value="68" />
+                                                            <Setter Property="ClipToBounds" Value="True" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ItemsControl.Style>
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
                                                     <StackPanel Orientation="Horizontal" />
@@ -1125,8 +1124,19 @@
 
                                         <StackPanel Grid.Column="2"
                                                     Orientation="Horizontal"
-                                                    VerticalAlignment="Center"
                                                     Opacity="{Binding ModeratedContentOpacity}">
+                                            <StackPanel.Style>
+                                                <Style TargetType="{x:Type StackPanel}">
+                                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsCompactChatMode, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                     Value="True">
+                                                            <Setter Property="VerticalAlignment" Value="Top" />
+                                                            <Setter Property="MaxWidth" Value="120" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
                                             <Path Width="12"
                                                   Height="12"
                                                   Margin="0,0,5,0"
@@ -1151,11 +1161,12 @@
                                                        Foreground="{Binding NickBrush}"
                                                        FontWeight="SemiBold"
                                                        Margin="0,1,6,0"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding UserLabel}" />
                                         </StackPanel>
 
                                         <StackPanel HorizontalAlignment="Stretch"
-                                                    VerticalAlignment="Center"
                                                     Opacity="{Binding ModeratedContentOpacity}">
                                             <StackPanel.Style>
                                                 <Style TargetType="{x:Type StackPanel}">
@@ -1163,14 +1174,20 @@
                                                     <Setter Property="Grid.Column" Value="3" />
                                                     <Setter Property="Grid.ColumnSpan" Value="1" />
                                                     <Setter Property="Margin" Value="0" />
+                                                    <Setter Property="VerticalAlignment" Value="Center" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsCompactChatMode, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                                      Value="True">
-                                                            <Setter Property="Grid.Row" Value="1" />
-                                                            <Setter Property="Grid.Column" Value="0" />
-                                                            <Setter Property="Grid.ColumnSpan" Value="5" />
-                                                            <Setter Property="Margin" Value="0,4,0,0" />
+                                                            <Setter Property="VerticalAlignment" Value="Top" />
                                                         </DataTrigger>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsCompactChatMode, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                           Value="True" />
+                                                                <Condition Binding="{Binding IsModerated}" Value="True" />
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </MultiDataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </StackPanel.Style>
@@ -1185,7 +1202,7 @@
                                                     Focusable="False"
                                                     Visibility="{Binding IsLongMessage, Converter={StaticResource BoolToVisibility}}">
                                                  <TextBlock FontSize="10"
-                                                            Foreground="{Binding DataContext.MessageSecondaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                                            Foreground="{DynamicResource SecondaryText}">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="Text" Value="{DynamicResource ExpandMessage}" />
@@ -1273,7 +1290,7 @@
                                                         </ItemsControl>
                                                         <TextBlock Text="{Binding Text}"
                                                                    MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                   Foreground="{Binding DataContext.MessagePrimaryBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                   Foreground="{DynamicResource PrimaryText}"
                                                                    Visibility="{Binding HasImage, Converter={StaticResource InverseBoolToVisibility}}">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
@@ -1304,14 +1321,34 @@
                                             </Border>
                                         </StackPanel>
                                         <Border Background="{DynamicResource ButtonBackgroundBrush}"
-                                                Grid.Column="4"
                                                 CornerRadius="7"
                                                 Padding="6,2"
-                                                Margin="7,0,0,0"
                                                 Visibility="{Binding IsModerated, Converter={StaticResource BoolToVisibility}}">
+                                            <Border.Style>
+                                                <Style TargetType="{x:Type Border}">
+                                                    <Setter Property="Grid.Row" Value="0" />
+                                                    <Setter Property="Grid.Column" Value="4" />
+                                                    <Setter Property="Grid.ColumnSpan" Value="1" />
+                                                    <Setter Property="Margin" Value="7,0,0,0" />
+                                                    <Setter Property="HorizontalAlignment" Value="Right" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsCompactChatMode, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                     Value="True">
+                                                            <Setter Property="Grid.Row" Value="1" />
+                                                            <Setter Property="Grid.Column" Value="0" />
+                                                            <Setter Property="Grid.ColumnSpan" Value="5" />
+                                                            <Setter Property="Margin" Value="0,4,0,0" />
+                                                            <Setter Property="HorizontalAlignment" Value="Left" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
                                             <TextBlock Text="{Binding ModerationStatus}"
-                                                       Foreground="{Binding DataContext.MessageMutedBrush, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                       FontSize="10" />
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       FontSize="10"
+                                                       TextWrapping="Wrap"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxHeight="32" />
                                         </Border>
                                     </Grid>
                                     </StackPanel>
@@ -1320,6 +1357,31 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+
+                    <Border Grid.Row="1"
+                            Panel.ZIndex="12"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="10"
+                            Padding="10,7"
+                            CornerRadius="10"
+                            Background="{DynamicResource PanelAltBackground}"
+                            BorderBrush="{DynamicResource BorderBrushSoft}"
+                            BorderThickness="1"
+                            IsHitTestVisible="False"
+                            Visibility="{Binding IsChatMediaLoading, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ProgressBar Width="34"
+                                         Height="4"
+                                         Margin="0,0,8,0"
+                                         IsIndeterminate="True"
+                                         Foreground="{DynamicResource AccentBrush}" />
+                            <TextBlock Text="{DynamicResource LoadingChatImages}"
+                                       Foreground="{DynamicResource SecondaryText}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
 
                     <Grid x:Name="JumpToLatestHost"
                           Grid.Row="1"
@@ -1376,7 +1438,8 @@
                         </Border>
                     </Grid>
 
-                    <Border Style="{StaticResource SubtleGlassCardStyle}"
+                    <Border x:Name="ChatEmptyStateCard"
+                            Style="{StaticResource SubtleGlassCardStyle}"
                             Grid.Row="1"
                             Padding="24"
                             MaxWidth="580"
@@ -1396,7 +1459,8 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource SubtleGlassCardStyle}"
+                    <Border x:Name="NoActiveChannelCard"
+                            Style="{StaticResource SubtleGlassCardStyle}"
                             Grid.Row="1"
                             Padding="28"
                             MaxWidth="560"
@@ -1543,7 +1607,7 @@
                 Panel.ZIndex="30"
                 Width="330"
                 MaxHeight="460"
-                Margin="16,76,0,0"
+                Margin="16,144,0,0"
                 Padding="14"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"

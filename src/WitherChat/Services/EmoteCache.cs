@@ -1,7 +1,10 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using WitherChat.Models;
@@ -18,7 +21,10 @@ public sealed class EmoteCache : IAsyncDisposable
     private const long HardDecodedBytes = 384L * 1024 * 1024;
     private const int SoftDecodedEntries = 800;
     private const int HardDecodedEntries = 1200;
+    private const long DiskCacheMaximumBytes = 256L * 1024 * 1024;
+    private const long DiskCacheTargetBytes = 192L * 1024 * 1024;
     private static readonly TimeSpan TrimInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan DiskCacheRetention = TimeSpan.FromDays(30);
     private static readonly HashSet<string> AllowedImageHosts = new(StringComparer.OrdinalIgnoreCase)
     {
         "static-cdn.jtvnw.net",
@@ -31,7 +37,9 @@ public sealed class EmoteCache : IAsyncDisposable
         CheckCertificateRevocationList = true
     })
     {
-        Timeout = TimeSpan.FromSeconds(15)
+        Timeout = TimeSpan.FromSeconds(15),
+        DefaultRequestVersion = HttpVersion.Version20,
+        DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower
     };
     private readonly FileLogger _logger;
     private readonly ConcurrentDictionary<string, Task<ImageSource?>> _images = new(StringComparer.Ordinal);
@@ -45,12 +53,17 @@ public sealed class EmoteCache : IAsyncDisposable
     private long _nextTrimUtcTicks;
     private long _approximateDecodedBytes;
     private int _disposed;
+    private static int _diskCleanupScheduled;
     private readonly SemaphoreSlim _decodeGate = new(3, 3);
     private readonly SemaphoreSlim _downloadGate = new(10, 10);
 
     public EmoteCache(FileLogger logger)
     {
         _logger = logger;
+        if (Interlocked.Exchange(ref _diskCleanupScheduled, 1) == 0)
+        {
+            _ = Task.Run(CleanupDiskCache);
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -206,7 +219,13 @@ public sealed class EmoteCache : IAsyncDisposable
     private async Task<ImageSource?> LoadImageAsync(string imageUrl, CancellationToken cancellationToken)
     {
         var bytes = await GetBytesAsync(imageUrl, cancellationToken).ConfigureAwait(false);
-        return bytes is null ? null : (await DecodeMediaAsync(bytes, cancellationToken).ConfigureAwait(false))?.FirstFrame;
+        var media = bytes is null ? null : await DecodeMediaAsync(bytes, cancellationToken).ConfigureAwait(false);
+        if (bytes is not null && media is null)
+        {
+            RemoveDiskCacheEntry(imageUrl);
+        }
+
+        return media?.FirstFrame;
     }
 
     private async Task<EmoteMedia?> LoadMediaWithFallbackAsync(
@@ -216,13 +235,25 @@ public sealed class EmoteCache : IAsyncDisposable
     {
         var bytes = await GetBytesAsync(imageUrl, cancellationToken).ConfigureAwait(false);
         var media = bytes is null ? null : await DecodeMediaAsync(bytes, cancellationToken).ConfigureAwait(false);
+        if (bytes is not null && media is null)
+        {
+            RemoveDiskCacheEntry(imageUrl);
+        }
         if (media is not null || string.IsNullOrWhiteSpace(fallbackImageUrl))
         {
             return media;
         }
 
         var fallbackBytes = await GetBytesAsync(fallbackImageUrl, cancellationToken).ConfigureAwait(false);
-        return fallbackBytes is null ? null : await DecodeMediaAsync(fallbackBytes, cancellationToken).ConfigureAwait(false);
+        var fallbackMedia = fallbackBytes is null
+            ? null
+            : await DecodeMediaAsync(fallbackBytes, cancellationToken).ConfigureAwait(false);
+        if (fallbackBytes is not null && fallbackMedia is null)
+        {
+            RemoveDiskCacheEntry(fallbackImageUrl);
+        }
+
+        return fallbackMedia;
     }
 
     private async Task<EmoteMedia?> DecodeMediaAsync(byte[] bytes, CancellationToken cancellationToken)
@@ -356,6 +387,12 @@ public sealed class EmoteCache : IAsyncDisposable
                 return null;
             }
 
+            var cachedBytes = await TryReadDiskCacheAsync(imageUrl, cancellationToken).ConfigureAwait(false);
+            if (cachedBytes is not null)
+            {
+                return cachedBytes;
+            }
+
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
             using var response = await _http.SendAsync(
                 request,
@@ -388,7 +425,9 @@ public sealed class EmoteCache : IAsyncDisposable
                 await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
             }
 
-            return output.ToArray();
+            var bytes = output.ToArray();
+            await TryWriteDiskCacheAsync(imageUrl, bytes).ConfigureAwait(false);
+            return bytes;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -659,6 +698,149 @@ public sealed class EmoteCache : IAsyncDisposable
     {
         var queryIndex = url.IndexOf('?', StringComparison.Ordinal);
         return queryIndex >= 0 ? url[..queryIndex] : url;
+    }
+
+    private static async Task<byte[]?> TryReadDiskCacheAsync(string imageUrl, CancellationToken cancellationToken)
+    {
+        var path = GetDiskCachePath(imageUrl);
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length is <= 0 or > MaxImageBytes)
+            {
+                return null;
+            }
+
+            if (info.LastWriteTimeUtc < DateTime.UtcNow - DiskCacheRetention)
+            {
+                info.Delete();
+                return null;
+            }
+
+            var bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+
+            return bytes;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task TryWriteDiskCacheAsync(string imageUrl, byte[] bytes)
+    {
+        if (bytes.Length is <= 0 or > MaxImageBytes)
+        {
+            return;
+        }
+
+        var path = GetDiskCachePath(imageUrl);
+        var tempPath = path + ".tmp-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            Directory.CreateDirectory(AppPaths.MediaCacheDirectory);
+            await File.WriteAllBytesAsync(tempPath, bytes).ConfigureAwait(false);
+            File.Move(tempPath, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    private static string GetDiskCachePath(string imageUrl)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(imageUrl));
+        return Path.Combine(AppPaths.MediaCacheDirectory, Convert.ToHexString(hash) + ".bin");
+    }
+
+    private static void RemoveDiskCacheEntry(string imageUrl)
+    {
+        try
+        {
+            File.Delete(GetDiskCachePath(imageUrl));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static void CleanupDiskCache()
+    {
+        try
+        {
+            var directory = new DirectoryInfo(AppPaths.MediaCacheDirectory);
+            if (!directory.Exists)
+            {
+                return;
+            }
+
+            var cutoff = DateTime.UtcNow - DiskCacheRetention;
+            var files = directory.EnumerateFiles("*.bin", SearchOption.TopDirectoryOnly).ToArray();
+            foreach (var file in files.Where(file => file.LastWriteTimeUtc < cutoff || file.Length is <= 0 or > MaxImageBytes))
+            {
+                TryDeleteCacheFile(file);
+            }
+
+            files = directory.EnumerateFiles("*.bin", SearchOption.TopDirectoryOnly)
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .ToArray();
+            var totalBytes = files.Sum(file => file.Length);
+            if (totalBytes <= DiskCacheMaximumBytes)
+            {
+                return;
+            }
+
+            foreach (var file in files.Reverse())
+            {
+                if (totalBytes <= DiskCacheTargetBytes)
+                {
+                    break;
+                }
+
+                var length = file.Length;
+                if (TryDeleteCacheFile(file))
+                {
+                    totalBytes -= length;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static bool TryDeleteCacheFile(FileInfo file)
+    {
+        try
+        {
+            file.Delete();
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private void Touch(string key) => _lastAccess[key] = DateTimeOffset.UtcNow.UtcTicks;

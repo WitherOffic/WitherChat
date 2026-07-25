@@ -131,9 +131,15 @@ public sealed class OverlayServerService : IAsyncDisposable
 
     public void PublishTestMessage()
     {
+        const string testMessageId = "overlay-test";
+        lock (_history)
+        {
+            _history.RemoveAll(message => string.Equals(message.Id, testMessageId, StringComparison.Ordinal));
+        }
+
         var message = new ChatMessageModel
         {
-            Id = "overlay-test-" + Guid.NewGuid().ToString("N"),
+            Id = testMessageId,
             Timestamp = DateTimeOffset.Now,
             Login = "witherchat",
             DisplayName = "WitherChat",
@@ -722,7 +728,7 @@ public sealed class OverlayServerService : IAsyncDisposable
             : message.Text;
         return new OverlayMessageDto(
             message.Id,
-            message.TimeText,
+            message.Timestamp.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture),
             message.Login,
             message.UserLabel,
             string.IsNullOrWhiteSpace(message.Color) ? "#B4B4FF" : message.Color,
@@ -943,6 +949,7 @@ public sealed class OverlayServerService : IAsyncDisposable
       gap: 8px;
     }
     .message {
+      display: inline-block;
       max-width: 100%;
       box-sizing: border-box;
       width: var(--message-width);
@@ -963,10 +970,18 @@ public sealed class OverlayServerService : IAsyncDisposable
       animation: enter .18s ease-out;
     }
     .time {
+      display: inline-block;
+      min-width: 3.1em;
       margin-right: 8px;
       color: rgba(230, 235, 255, .62);
       font-size: .72em;
       font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .time[hidden] {
+      display: none;
     }
     .badge {
       width: 1em;
@@ -1048,8 +1063,8 @@ public sealed class OverlayServerService : IAsyncDisposable
       document.documentElement.style.setProperty(
         '--message-theme-image',
         useTornBlackTheme ? "url('/overlay/assets/message-torn-black.png')" : 'none');
-      document.documentElement.style.setProperty('--message-padding', useTornBlackTheme ? '16px 24px 18px' : '8px 12px');
-      document.documentElement.style.setProperty('--message-width', useTornBlackTheme ? '100%' : 'auto');
+      document.documentElement.style.setProperty('--message-padding', useTornBlackTheme ? '14px 26px 16px' : '8px 12px');
+      document.documentElement.style.setProperty('--message-width', useTornBlackTheme ? 'max-content' : 'auto');
       document.documentElement.style.setProperty('--message-radius', useTornBlackTheme ? '0' : '16px');
       document.documentElement.style.setProperty(
         '--message-background',
@@ -1070,7 +1085,15 @@ public sealed class OverlayServerService : IAsyncDisposable
       const align = settings.align === 'center' ? 'center' : settings.align === 'right' ? 'flex-end' : 'flex-start';
       document.documentElement.style.setProperty('--align-items', align);
       document.documentElement.style.setProperty('--text-align', settings.align === 'center' ? 'center' : settings.align === 'right' ? 'right' : 'left');
+      chat.querySelectorAll('.time').forEach(time => {
+        time.hidden = !settings.showTimestamps || !time.textContent;
+      });
       trim();
+    }
+
+    function normalizeTime(value) {
+      const match = String(value ?? '').trim().match(/^(\d{1,2}):(\d{2})/);
+      return match ? `${match[1].padStart(2, '0')}:${match[2]}` : '';
     }
 
     function renderParts(message, parent) {
@@ -1122,16 +1145,23 @@ public sealed class OverlayServerService : IAsyncDisposable
     }
 
     function addMessage(message) {
-      if (!message || !rememberMessage(message)) return;
+      if (!message) return;
+      const messageId = String(message.id ?? '');
+      if (messageId === 'overlay-test') {
+        Array.from(chat.children).find(child => child.dataset.id === messageId)?.remove();
+        seenMessageIds.delete(messageId);
+        const seenIndex = seenMessageOrder.indexOf(messageId);
+        if (seenIndex >= 0) seenMessageOrder.splice(seenIndex, 1);
+      }
+      if (!rememberMessage(message)) return;
       const row = document.createElement('div');
       row.className = 'message';
       row.dataset.id = message.id || `${Date.now()}-${Math.random()}`;
-      if (settings.showTimestamps) {
-        const time = document.createElement('span');
-        time.className = 'time';
-        time.textContent = String(message.time ?? '');
-        row.appendChild(time);
-      }
+      const time = document.createElement('span');
+      time.className = 'time';
+      time.textContent = normalizeTime(message.time);
+      time.hidden = !settings.showTimestamps || !time.textContent;
+      row.appendChild(time);
       if (settings.showBadges && Array.isArray(message.badges)) {
         message.badges.forEach(b => appendImage(row, 'badge', b.imageUrl, b.title || b.setId));
       }
