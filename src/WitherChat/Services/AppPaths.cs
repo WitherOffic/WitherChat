@@ -58,6 +58,7 @@ public static class AppPaths
     public static string LegacySettingsFile => Path.Combine(LegacyAppDataDirectory, "settings.json");
     public static string LegacyTokenFile => Path.Combine(LegacyAppDataDirectory, "token.dat");
     public static string BadgeCacheFile => Path.Combine(LocalDataDirectory, "badge-cache.json");
+    public static string MediaCacheDirectory => Path.Combine(LocalDataDirectory, "media-cache");
     public static string ModerationCacheFile => Path.Combine(LocalDataDirectory, "moderation-cache.json");
     public static string LogDirectory => Path.Combine(LocalDataDirectory, "logs");
     public static string LogFile => Path.Combine(LogDirectory, "app.log");

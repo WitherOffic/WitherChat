@@ -10,8 +10,31 @@ artifacts/
 
 # Local WitherChat user data and diagnostics
 settings.json
+settings.json.bak
+settings.json.corrupt-*
 token.dat
+twitch-session.dat
+youtube-session.dat
+donationalerts-session.dat
+donationalerts-widget.dat
+moderation-cache.json
+stream-moments.json
+*.logged-out
+token.logout
+secret.key
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.mobileprovision
 chat_logs/
 logs/
 *.log
 *.tmp
+.tmp-*/
+
+# Generated test diagnostics and crash/hang captures
+TestResults/
+AvaloniaUI/
+*.dmp

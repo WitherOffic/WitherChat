@@ -48,17 +48,17 @@ public sealed class ThirdPartyEmoteService : IDisposable
         await _refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            var bttvTask = enableBttv
+                ? LoadProviderAsync(_bttvProvider, twitchBroadcasterId, cancellationToken)
+                : Task.FromResult<IReadOnlyList<ThirdPartyEmote>>([]);
+            var sevenTvTask = enableSevenTv
+                ? LoadProviderAsync(_sevenTvProvider, twitchBroadcasterId, cancellationToken)
+                : Task.FromResult<IReadOnlyList<ThirdPartyEmote>>([]);
+
+            await Task.WhenAll(bttvTask, sevenTvTask).ConfigureAwait(false);
             var next = new Dictionary<string, ThirdPartyEmote>(StringComparer.Ordinal);
-
-            if (enableBttv)
-            {
-                await LoadProviderAsync(_bttvProvider, twitchBroadcasterId, next, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (enableSevenTv)
-            {
-                await LoadProviderAsync(_sevenTvProvider, twitchBroadcasterId, next, cancellationToken).ConfigureAwait(false);
-            }
+            AddEmotes(next, await bttvTask.ConfigureAwait(false));
+            AddEmotes(next, await sevenTvTask.ConfigureAwait(false));
 
             cancellationToken.ThrowIfCancellationRequested();
             lock (_gate)
@@ -142,22 +142,14 @@ public sealed class ThirdPartyEmoteService : IDisposable
         _refreshGate.Dispose();
     }
 
-    private async Task LoadProviderAsync(
+    private async Task<IReadOnlyList<ThirdPartyEmote>> LoadProviderAsync(
         IThirdPartyEmoteProvider provider,
         string twitchBroadcasterId,
-        IDictionary<string, ThirdPartyEmote> target,
         CancellationToken cancellationToken)
     {
         try
         {
-            var emotes = await provider.LoadEmotesAsync(twitchBroadcasterId, cancellationToken).ConfigureAwait(false);
-            foreach (var emote in emotes)
-            {
-                if (!string.IsNullOrWhiteSpace(emote.Code) && !string.IsNullOrWhiteSpace(emote.ImageUrl))
-                {
-                    target[emote.Code] = emote;
-                }
-            }
+            return await provider.LoadEmotesAsync(twitchBroadcasterId, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -166,6 +158,20 @@ public sealed class ThirdPartyEmoteService : IDisposable
         catch (Exception ex)
         {
             _logger.Warn($"{provider.Name} emotes skipped: {ex.GetType().Name}");
+            return [];
+        }
+    }
+
+    private static void AddEmotes(
+        IDictionary<string, ThirdPartyEmote> target,
+        IEnumerable<ThirdPartyEmote> emotes)
+    {
+        foreach (var emote in emotes)
+        {
+            if (!string.IsNullOrWhiteSpace(emote.Code) && !string.IsNullOrWhiteSpace(emote.ImageUrl))
+            {
+                target[emote.Code] = emote;
+            }
         }
     }
 

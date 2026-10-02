@@ -1,0 +1,859 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <LinearGradientBrush x:Key="AppBackgroundBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#07090F" Offset="0" />
+                        <GradientStop Color="#0B0E17" Offset="0.52" />
+                        <GradientStop Color="#05070C" Offset="1" />
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="SurfaceBrush">#D0101420</SolidColorBrush>
+                    <SolidColorBrush x:Key="SurfaceRaisedBrush">#B8131824</SolidColorBrush>
+                    <SolidColorBrush x:Key="SurfaceHoverBrush">#5A2A3347</SolidColorBrush>
+                    <SolidColorBrush x:Key="BorderBrush">#2BFFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="BorderStrongBrush">#55FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="PrimaryTextBrush">#F7F8FF</SolidColorBrush>
+                    <SolidColorBrush x:Key="SecondaryTextBrush">#AEB4C4</SolidColorBrush>
+                    <SolidColorBrush x:Key="MutedTextBrush">#7F879A</SolidColorBrush>
+                    <SolidColorBrush x:Key="AccentBrush">#9F8CFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="AccentHoverBrush">#A88CFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="SelectionBrush">#5A2A3347</SolidColorBrush>
+                    <SolidColorBrush x:Key="ComposerBrush">#B8131824</SolidColorBrush>
+                    <SolidColorBrush x:Key="ButtonBrush">#2AFFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="ButtonHoverBrush">#42FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="ButtonPressedBrush">#24FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="ButtonDisabledBrush">#12FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="JumpLatestGlassBrush">#14FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="JumpLatestGlassHoverBrush">#24FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="JumpLatestGlassBorderBrush">#45FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="InputBrush">#22FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="InputFocusedBrush">#33FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="SuccessBrush">#6FE7B4</SolidColorBrush>
+                    <SolidColorBrush x:Key="DangerBrush">#FF6B7A</SolidColorBrush>
+                    <SolidColorBrush x:Key="WarningBrush">#F6C85F</SolidColorBrush>
+                    <SolidColorBrush x:Key="DonationAccentBrush">#FF9D45</SolidColorBrush>
+                    <SolidColorBrush x:Key="DonationAccentSoftBrush">#FFAA65</SolidColorBrush>
+                    <SolidColorBrush x:Key="PopupBrush">#F00C101A</SolidColorBrush>
+                    <LinearGradientBrush x:Key="OnboardingGlassBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#FA151929" Offset="0" />
+                        <GradientStop Color="#F7121524" Offset="0.52" />
+                        <GradientStop Color="#FA101725" Offset="1" />
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#A88CFF" Offset="0" />
+                        <GradientStop Color="#6CB6FF" Offset="0.58" />
+                        <GradientStop Color="#7AF0D2" Offset="1" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <LinearGradientBrush x:Key="AppBackgroundBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#F4F5FA" Offset="0" />
+                        <GradientStop Color="#ECEFF6" Offset="0.52" />
+                        <GradientStop Color="#F7F8FC" Offset="1" />
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="SurfaceBrush">#EFFFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="SurfaceRaisedBrush">#DDF7F8FC</SolidColorBrush>
+                    <SolidColorBrush x:Key="SurfaceHoverBrush">#BFDDE2ED</SolidColorBrush>
+                    <SolidColorBrush x:Key="BorderBrush">#2B111827</SolidColorBrush>
+                    <SolidColorBrush x:Key="BorderStrongBrush">#55111827</SolidColorBrush>
+                    <SolidColorBrush x:Key="PrimaryTextBrush">#10131B</SolidColorBrush>
+                    <SolidColorBrush x:Key="SecondaryTextBrush">#4F586B</SolidColorBrush>
+                    <SolidColorBrush x:Key="MutedTextBrush">#596275</SolidColorBrush>
+                    <SolidColorBrush x:Key="AccentBrush">#745DE8</SolidColorBrush>
+                    <SolidColorBrush x:Key="AccentHoverBrush">#654DD5</SolidColorBrush>
+                    <SolidColorBrush x:Key="SelectionBrush">#D7DDF0</SolidColorBrush>
+                    <SolidColorBrush x:Key="ComposerBrush">#E8FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="ButtonBrush">#18111827</SolidColorBrush>
+                    <SolidColorBrush x:Key="ButtonHoverBrush">#26111827</SolidColorBrush>
+                    <SolidColorBrush x:Key="ButtonPressedBrush">#12111827</SolidColorBrush>
+                    <SolidColorBrush x:Key="ButtonDisabledBrush">#12111827</SolidColorBrush>
+                    <SolidColorBrush x:Key="JumpLatestGlassBrush">#10111827</SolidColorBrush>
+                    <SolidColorBrush x:Key="JumpLatestGlassHoverBrush">#20111827</SolidColorBrush>
+                    <SolidColorBrush x:Key="JumpLatestGlassBorderBrush">#40111827</SolidColorBrush>
+                    <SolidColorBrush x:Key="InputBrush">#16FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="InputFocusedBrush">#24FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="SuccessBrush">#16805E</SolidColorBrush>
+                    <SolidColorBrush x:Key="DangerBrush">#B4233C</SolidColorBrush>
+                    <SolidColorBrush x:Key="WarningBrush">#765400</SolidColorBrush>
+                    <SolidColorBrush x:Key="DonationAccentBrush">#A43B00</SolidColorBrush>
+                    <SolidColorBrush x:Key="DonationAccentSoftBrush">#923100</SolidColorBrush>
+                    <SolidColorBrush x:Key="PopupBrush">#F8FFFFFF</SolidColorBrush>
+                    <LinearGradientBrush x:Key="OnboardingGlassBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#FAFFFFFF" Offset="0" />
+                        <GradientStop Color="#F6F6F8FF" Offset="0.52" />
+                        <GradientStop Color="#FAF5FBFF" Offset="1" />
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#8D73F4" Offset="0" />
+                        <GradientStop Color="#5B93E7" Offset="0.58" />
+                        <GradientStop Color="#55C9AE" Offset="1" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <Style Selector="Window.wither-window">
+        <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+
+    <Style Selector="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style Selector="Button, TextBox, ComboBox, NumericUpDown, CheckBox, ToggleSwitch">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style Selector="CheckBox.settings-check">
+        <Setter Property="MinHeight" Value="20" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid ColumnDefinitions="18,8,*" MinHeight="20">
+                    <Border Name="CheckIndicator"
+                            Width="18" Height="18"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            CornerRadius="5"
+                            UseLayoutRounding="True"
+                            Background="#22FFFFFF"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1">
+                        <Path Name="CheckGlyph"
+                              Width="10" Height="8"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Data="M 1,4.5 L 4.25,7.75 L 11,1"
+                              Stroke="#10131C"
+                              StrokeThickness="1.7"
+                              StrokeLineCap="Round"
+                              StrokeJoin="Round"
+                              Stretch="Fill"
+                              UseLayoutRounding="True"
+                              IsVisible="False" />
+                    </Border>
+                    <ContentPresenter Grid.Column="2"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      VerticalAlignment="Center" />
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="CheckBox.settings-check:pointerover /template/ Border#CheckIndicator">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    </Style>
+
+    <Style Selector="CheckBox.settings-check:checked /template/ Border#CheckIndicator">
+        <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+        <Setter Property="BorderBrush" Value="#80FFFFFF" />
+    </Style>
+
+    <Style Selector="CheckBox.settings-check:checked /template/ Path#CheckGlyph">
+        <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="CheckBox.settings-check:disabled">
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="16" />
+    </Style>
+
+    <Style Selector="Border.subtle-card">
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="14" />
+    </Style>
+
+    <Style Selector="Border.composer-panel">
+        <Setter Property="CornerRadius" Value="20" />
+    </Style>
+
+    <Style Selector="Border.status-pill">
+        <Setter Property="Background" Value="#18FFFFFF" />
+        <Setter Property="BorderBrush" Value="#2CFFFFFF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="13" />
+        <Setter Property="Padding" Value="9,5" />
+    </Style>
+
+    <Style Selector="Border.status-strip">
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="15" />
+        <Setter Property="Padding" Value="9,5" />
+    </Style>
+
+    <Style Selector="Border.header-tools-strip">
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="19" />
+        <Setter Property="Padding" Value="3" />
+    </Style>
+
+    <Style Selector="Button">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="15,8" />
+        <Setter Property="CornerRadius" Value="17" />
+        <Setter Property="Background" Value="{DynamicResource ButtonBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+        <Setter Property="RenderTransform" Value="translate(0px, 0px) scale(1)" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button:pointerover">
+        <Setter Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+        <Setter Property="RenderTransform" Value="translate(0px, -1px) scale(1)" />
+    </Style>
+
+    <Style Selector="Button:pressed">
+        <Setter Property="Background" Value="{DynamicResource ButtonPressedBrush}" />
+        <Setter Property="RenderTransform" Value="translate(0px, 0px) scale(0.975)" />
+    </Style>
+
+    <Style Selector="Button:disabled">
+        <Setter Property="Background" Value="{DynamicResource ButtonDisabledBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+        <Setter Property="Opacity" Value="0.56" />
+    </Style>
+
+    <Style Selector="Button.icon-button">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="MinWidth" Value="36" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+        <Setter Property="RenderTransform" Value="translate(0px, 0px) scale(1)" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.icon-button:pointerover">
+        <Setter Property="RenderTransform" Value="translate(0px, -2px) scale(1)" />
+    </Style>
+
+    <Style Selector="Button.icon-button:pressed">
+        <Setter Property="RenderTransform" Value="translate(0px, 0px) scale(0.975)" />
+    </Style>
+
+    <Style Selector="Border.header-tools-strip Button.icon-button">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Border.header-tools-strip Button.icon-button:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    </Style>
+
+    <Style Selector="FlyoutPresenter.header-tools-flyout">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style Selector="Button.header-overflow-item">
+        <Setter Property="Height" Value="44" />
+        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="MinWidth" Value="232" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    </Style>
+
+    <Style Selector="Button.header-overflow-item:pointerover">
+        <Setter Property="Background" Value="{DynamicResource JumpLatestGlassHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource JumpLatestGlassBorderBrush}" />
+    </Style>
+
+    <Style Selector="Button.header-overflow-item:pressed">
+        <Setter Property="Background" Value="{DynamicResource ButtonPressedBrush}" />
+    </Style>
+
+    <Style Selector="Button.context-help">
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinWidth" Value="28" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Background" Value="{DynamicResource JumpLatestGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource JumpLatestGlassBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style Selector="Button.context-help:pointerover">
+        <Setter Property="Background" Value="{DynamicResource JumpLatestGlassHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="Button.icon-button.log-close">
+        <Setter Property="Background" Value="#18FF5C70" />
+        <Setter Property="BorderBrush" Value="#55FF5C70" />
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+
+    <Style Selector="Button.icon-button.log-close:pointerover">
+        <Setter Property="Background" Value="#30FF5C70" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+    </Style>
+
+    <Style Selector="Button.jump-latest">
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="MinWidth" Value="40" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.jump-latest.compact">
+        <Setter Property="Background" Value="{DynamicResource JumpLatestGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource JumpLatestGlassBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style Selector="Button.jump-latest.compact:pointerover">
+        <Setter Property="Background" Value="{DynamicResource JumpLatestGlassHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource JumpLatestGlassBorderBrush}" />
+    </Style>
+
+    <Style Selector="Button.jump-latest.compact:pressed">
+        <Setter Property="Background" Value="{DynamicResource JumpLatestGlassHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource JumpLatestGlassBorderBrush}" />
+    </Style>
+
+    <Style Selector="Window.reduce-motion Button.icon-button">
+        <Setter Property="RenderTransform" Value="translate(0px, 0px) scale(1)" />
+        <Setter Property="Transitions">
+            <Transitions />
+        </Setter>
+    </Style>
+
+    <Style Selector="Window.reduce-motion Button">
+        <Setter Property="RenderTransform" Value="translate(0px, 0px) scale(1)" />
+        <Setter Property="Transitions">
+            <Transitions />
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.header-account">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Padding" Value="4,3" />
+        <Setter Property="Margin" Value="-4,0,10,0" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+
+    <Style Selector="Button.settings-nav">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="Height" Value="38" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0,0,0,4" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.settings-nav.selected">
+        <Setter Property="Background" Value="#171A24" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="#F7F8FF" />
+    </Style>
+
+    <Style Selector="Button.moderation-tab">
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Button.moderation-tab.selected">
+        <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#0B0D12" />
+    </Style>
+
+    <Style Selector="Button.connect-channel-tab">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    </Style>
+
+    <Style Selector="Button.connect-channel-tab.selected">
+        <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#0B0D12" />
+    </Style>
+
+    <Style Selector="Button.primary">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="15,8" />
+        <Setter Property="CornerRadius" Value="17" />
+        <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+        <Setter Property="Foreground" Value="#0B0D12" />
+        <Setter Property="BorderBrush" Value="#66FFFFFF" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.primary:disabled">
+        <Setter Property="Background" Value="{DynamicResource ButtonDisabledBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="Opacity" Value="0.56" />
+    </Style>
+
+    <Style Selector="Button.danger">
+        <Setter Property="Background" Value="#33FF5C70" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+
+    <Style Selector="Button.support-brand">
+        <Setter Property="Height" Value="58" />
+        <Setter Property="MinHeight" Value="58" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style Selector="Button.support-brand.boosty">
+        <Setter Property="Background" Value="#20F15F2C" />
+        <Setter Property="BorderBrush" Value="#70F15F2C" />
+    </Style>
+    <Style Selector="Button.support-brand.boosty:pointerover">
+        <Setter Property="Background" Value="#38F15F2C" />
+        <Setter Property="BorderBrush" Value="#B0F15F2C" />
+    </Style>
+
+    <Style Selector="Button.support-brand.donation-alerts">
+        <Setter Property="Background" Value="#20F57D07" />
+        <Setter Property="BorderBrush" Value="#70F57D07" />
+    </Style>
+    <Style Selector="Button.support-brand.donation-alerts:pointerover">
+        <Setter Property="Background" Value="#38F57D07" />
+        <Setter Property="BorderBrush" Value="#B0F57D07" />
+    </Style>
+
+    <Style Selector="Button.support-brand.twitch">
+        <Setter Property="Background" Value="#209146FF" />
+        <Setter Property="BorderBrush" Value="#709146FF" />
+    </Style>
+    <Style Selector="Button.support-brand.twitch:pointerover">
+        <Setter Property="Background" Value="#389146FF" />
+        <Setter Property="BorderBrush" Value="#B09146FF" />
+    </Style>
+
+    <Style Selector="Button.support-brand.youtube">
+        <Setter Property="Background" Value="#20FF0000" />
+        <Setter Property="BorderBrush" Value="#70FF0000" />
+    </Style>
+    <Style Selector="Button.support-brand.youtube:pointerover">
+        <Setter Property="Background" Value="#38FF0000" />
+        <Setter Property="BorderBrush" Value="#B0FF0000" />
+    </Style>
+
+    <Style Selector="Button.support-brand.steam">
+        <Setter Property="Background" Value="#202A475E" />
+        <Setter Property="BorderBrush" Value="#7090B7D3" />
+    </Style>
+    <Style Selector="Button.support-brand.steam:pointerover">
+        <Setter Property="Background" Value="#38466C87" />
+        <Setter Property="BorderBrush" Value="#B090B7D3" />
+    </Style>
+
+    <Style Selector="Button.support-brand.telegram">
+        <Setter Property="Background" Value="#202AABEE" />
+        <Setter Property="BorderBrush" Value="#702AABEE" />
+    </Style>
+    <Style Selector="Button.support-brand.telegram:pointerover">
+        <Setter Property="Background" Value="#382AABEE" />
+        <Setter Property="BorderBrush" Value="#B02AABEE" />
+    </Style>
+
+    <Style Selector="Button.support-wallet">
+        <Setter Property="Height" Value="64" />
+        <Setter Property="MinHeight" Value="64" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.support-wallet.tron">
+        <Setter Property="Background" Value="#18DC062B" />
+        <Setter Property="BorderBrush" Value="#60DC062B" />
+    </Style>
+    <Style Selector="Button.support-wallet.tron:pointerover">
+        <Setter Property="Background" Value="#30DC062B" />
+        <Setter Property="BorderBrush" Value="#A0DC062B" />
+    </Style>
+    <Style Selector="Button.support-wallet.ton">
+        <Setter Property="Background" Value="#180092FF" />
+        <Setter Property="BorderBrush" Value="#600092FF" />
+    </Style>
+    <Style Selector="Button.support-wallet.ton:pointerover">
+        <Setter Property="Background" Value="#300092FF" />
+        <Setter Property="BorderBrush" Value="#A00092FF" />
+    </Style>
+    <Style Selector="Button.support-wallet.bsc">
+        <Setter Property="Background" Value="#18F0B90B" />
+        <Setter Property="BorderBrush" Value="#60F0B90B" />
+    </Style>
+    <Style Selector="Button.support-wallet.bsc:pointerover">
+        <Setter Property="Background" Value="#30F0B90B" />
+        <Setter Property="BorderBrush" Value="#A0F0B90B" />
+    </Style>
+
+    <Style Selector="Border.onboarding-target">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="#D19A8CFF" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <Style Selector="Button.onboarding-secondary">
+        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="Background" Value="#14FFFFFF" />
+        <Setter Property="BorderBrush" Value="#38FFFFFF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="14" />
+    </Style>
+
+    <Style Selector="Button.onboarding-secondary:pointerover">
+        <Setter Property="Background" Value="#24FFFFFF" />
+        <Setter Property="BorderBrush" Value="#709A8CFF" />
+    </Style>
+
+    <Style Selector="ProgressBar.onboarding-progress">
+        <Setter Property="Height" Value="5" />
+        <Setter Property="MinHeight" Value="5" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Background" Value="#24FFFFFF" />
+        <Setter Property="CornerRadius" Value="3" />
+    </Style>
+
+    <Style Selector="Button.ghost">
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="Button.tool">
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="11,5" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="CornerRadius" Value="15" />
+    </Style>
+
+    <Style Selector="Border.channel-row">
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="7" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="CornerRadius" Value="12" />
+    </Style>
+
+    <Style Selector="Border.channel-row:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+
+    <Style Selector="Border.channel-row.selected">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="Button.traffic">
+        <Setter Property="Width" Value="14" />
+        <Setter Property="Height" Value="14" />
+        <Setter Property="MinWidth" Value="14" />
+        <Setter Property="MinHeight" Value="14" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="7" />
+    </Style>
+
+    <Style Selector="Button.caption">
+        <Setter Property="Width" Value="42" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="42" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+
+    <Style Selector="Button.caption:pointerover">
+        <Setter Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    </Style>
+
+    <Style Selector="Button.caption.close:pointerover">
+        <Setter Property="Background" Value="#FFE81123" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+
+    <Style Selector="Button.panel-toggle">
+        <Setter Property="Width" Value="38" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="MinWidth" Value="38" />
+        <Setter Property="MinHeight" Value="20" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+
+    <Style Selector="Button.numeric-step">
+        <Setter Property="Width" Value="38" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="MinWidth" Value="38" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBox">
+        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="Padding" Value="13,9" />
+        <Setter Property="CornerRadius" Value="19" />
+        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="FocusAdorner" Value="{x:Null}" />
+    </Style>
+
+    <Style Selector="TextBox:focus">
+        <Setter Property="Background" Value="{DynamicResource InputFocusedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="TextBox.numeric-setting-input">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBox.composer">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="26" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="FontSize" Value="16" />
+    </Style>
+
+    <Style Selector="TextBox.composer:focus">
+        <Setter Property="Background" Value="{DynamicResource InputFocusedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="TextBox.composer:focus-within">
+        <Setter Property="Background" Value="{DynamicResource InputFocusedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="ComboBox">
+        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="Padding" Value="13,7" />
+        <Setter Property="CornerRadius" Value="19" />
+        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="FocusAdorner" Value="{x:Null}" />
+    </Style>
+
+    <Style Selector="ComboBox:focus">
+        <Setter Property="Background" Value="{DynamicResource InputFocusedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="ComboBox:dropdownopen /template/ Border#PopupBorder">
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="ClipToBounds" Value="True" />
+        <Setter Property="BoxShadow" Value="0 10 28 0 #80000000" />
+    </Style>
+
+    <Style Selector="ComboBoxItem">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Margin" Value="4,2" />
+        <Setter Property="Padding" Value="11,7" />
+        <Setter Property="CornerRadius" Value="10" />
+    </Style>
+
+    <Style Selector="ComboBoxItem /template/ ContentPresenter">
+        <Setter Property="CornerRadius" Value="10" />
+    </Style>
+
+    <Style Selector="Button.composer-send">
+        <Setter Property="Width" Value="46" />
+        <Setter Property="Height" Value="46" />
+        <Setter Property="MinWidth" Value="46" />
+        <Setter Property="MinHeight" Value="46" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="23" />
+    </Style>
+
+    <Style Selector="Button.log-delete">
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="34" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="15" />
+    </Style>
+
+    <Style Selector="ListBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="ListBoxItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="3" />
+        <Setter Property="Margin" Value="0,0,0,3" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style Selector="ListBoxItem:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+
+    <Style Selector="ListBoxItem:selected">
+        <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="ListBox.chat-list">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style Selector="ListBox.chat-list > ListBoxItem">
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="Margin" Value="0,0,0,1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style Selector="ListBox.chat-list > ListBoxItem:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+
+    <Style Selector="ListBox.chat-list > ListBoxItem:selected">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBox.chat-list.compact > ListBoxItem">
+        <Setter Property="Padding" Value="5,3" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="CornerRadius" Value="7" />
+    </Style>
+
+    <Style Selector="ListBox.log-navigation > ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0,0,12,4" />
+        <Setter Property="CornerRadius" Value="10" />
+    </Style>
+
+    <Style Selector="ListBox.log-entries">
+        <Setter Property="Padding" Value="4,2" />
+    </Style>
+
+    <Style Selector="ListBox.log-entries > ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+
+    <Style Selector="ListBox.log-entries > ListBoxItem:selected">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    </Style>
+</Styles>

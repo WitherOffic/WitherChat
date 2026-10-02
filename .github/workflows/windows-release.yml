@@ -1,0 +1,60 @@
+name: Windows release (unsigned preparation)
+
+on:
+  push:
+    branches: [main, open-source-0.5.1a-preparation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AVALONIA_TELEMETRY_OPTOUT: "1"
+  WITHERCHAT_VERSION: "0.5.1A"
+  WITHERCHAT_RUNTIME_VERSION: "8.0.30"
+
+jobs:
+  windows:
+    name: Build public Windows x64 package
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.317
+
+      - name: Restore desktop
+        run: dotnet restore src/WitherChat.Desktop/WitherChat.Desktop.csproj -r win-x64 -p:RuntimeFrameworkVersion=${{ env.WITHERCHAT_RUNTIME_VERSION }} -p:NuGetAudit=true -p:NuGetAuditMode=all -p:TreatWarningsAsErrors=true
+
+      - name: Package unsigned development build
+        shell: pwsh
+        run: ./build/Publish-WitherChat.ps1 -Platform windows -WindowsArchitecture x64 -Version $env:WITHERCHAT_VERSION -NoRestore
+
+      - name: Check expected state and required license
+        shell: pwsh
+        run: |
+          $exe = "artifacts/WitherChat/windows/current/$env:WITHERCHAT_VERSION/win-x64-single-file/WitherChat.exe"
+          $signature = Get-AuthenticodeSignature -LiteralPath $exe
+          if ($signature.Status -ne 'NotSigned') { throw "Unexpected signature state for unsigned preparation." }
+          if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $exe) 'LICENSE'))) { throw 'MIT license is missing.' }
+          Write-Output "Development artifact is unsigned; Smart App Control compatibility is not certified."
+
+      - name: Upload standalone package with notices
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: WitherChat-${{ env.WITHERCHAT_VERSION }}-win-x64-UNSIGNED
+          path: artifacts/WitherChat/windows/current/${{ env.WITHERCHAT_VERSION }}/win-x64-single-file/
+          if-no-files-found: error
+          retention-days: 14
+
+# No SignPath token, signing request, release publication or claim of approval.
+# Enable signing in a reviewed workflow only after Foundation acceptance,
+# account/MFA setup, artifact policy review and manual approval configuration.

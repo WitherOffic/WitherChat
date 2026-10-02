@@ -315,6 +315,12 @@ public sealed class ChatMessageModel : ObservableObject
             return;
         }
 
+        if (_isMessageExpanded)
+        {
+            _isMessageExpanded = false;
+            OnPropertyChanged(nameof(IsMessageExpanded));
+        }
+
         if (ModerationState == state)
         {
             if (string.IsNullOrWhiteSpace(ModerationReason) && !string.IsNullOrWhiteSpace(reason))

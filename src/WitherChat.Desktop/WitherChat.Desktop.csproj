@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12.0</LangVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="$([MSBuild]::IsOSPlatform('Windows'))">Assets\WitherChat.ico</ApplicationIcon>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <AssemblyName>WitherChat</AssemblyName>
+    <RootNamespace>WitherChat.Desktop</RootNamespace>
+    <Company>WitherChat</Company>
+    <Authors>WitherChat</Authors>
+    <Product>WitherChat</Product>
+    <Title>WitherChat</Title>
+    <Copyright>WitherChat</Copyright>
+    <Description>Cross-platform Twitch and YouTube live chat for Windows, Linux and macOS.</Description>
+    <Version>0.5.1-alpha</Version>
+    <FileVersion>0.5.1.0</FileVersion>
+    <AssemblyVersion>0.5.1.0</AssemblyVersion>
+    <InformationalVersion>0.5.1A</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <Deterministic>true</Deterministic>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="WitherChat.LICENSE" />
+    <AvaloniaResource Include="..\WitherChat\Assets\Fonts\Inter-Variable.ttf"
+                      Link="Assets\Fonts\Inter-Variable.ttf" />
+    <None Include="..\WitherChat\Assets\Fonts\OFL-Inter.txt"
+          Link="Assets\Fonts\OFL-Inter.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WitherChat.Core\WitherChat.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+  </ItemGroup>
+</Project>

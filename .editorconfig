@@ -1,0 +1,19 @@
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+
+[src/WitherChat.Desktop/**/*.cs]
+# Avalonia/XAML creates several application types by name, so public visibility is intentional.
+dotnet_diagnostic.CA1515.severity = none
+# UI event handlers intentionally resume on Avalonia's synchronization context.
+dotnet_diagnostic.CA2007.severity = none
+# Properties used only by compiled XAML bindings must remain instance properties.
+dotnet_diagnostic.CA1822.severity = none
+
+[tests/**/*.cs]
+# Console smoke tests have no synchronization context and intentionally write localized diagnostics synchronously.
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.CA1849.severity = none
+dotnet_diagnostic.CA1303.severity = none

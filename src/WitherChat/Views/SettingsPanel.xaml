@@ -297,17 +297,40 @@
                                         ToolTip="{DynamicResource IncreaseMessageLimit}" />
                             </Grid>
 
-                            <TextBlock Text="{DynamicResource MessageVisualTheme}"
+                            <TextBlock Text="{DynamicResource ViewerCountRefreshInterval}"
                                        Style="{StaticResource CaptionTextStyle}"
                                        Margin="0,18,0,7" />
-                            <ComboBox Width="240"
-                                      HorizontalAlignment="Left"
-                                      SelectedValue="{Binding MessageVisualTheme, UpdateSourceTrigger=PropertyChanged}"
-                                      SelectedValuePath="Tag">
-                                <ComboBoxItem Content="{DynamicResource MessageThemeDefault}" Tag="Default" />
-                                <ComboBoxItem Content="{DynamicResource MessageThemeTornBlack}" Tag="TornBlack" />
-                            </ComboBox>
-                            <TextBlock Text="{DynamicResource MessageVisualThemeHelp}"
+                            <Grid Width="222" MinHeight="36" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="38" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="38" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0"
+                                        Content="-"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource NumericStepButtonStyle}"
+                                        Click="ViewerCountRefreshIntervalMinus_Click"
+                                        ToolTip="{DynamicResource DecreaseViewerCountRefreshInterval}" />
+                                <TextBox x:Name="ViewerCountRefreshIntervalText"
+                                         Grid.Column="2"
+                                         VerticalAlignment="Center"
+                                         Style="{StaticResource NumericTextBoxStyle}"
+                                         Text="{Binding ViewerCountRefreshIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                         PreviewTextInput="NumberOnly_PreviewTextInput"
+                                         PreviewKeyDown="ViewerCountRefreshIntervalText_PreviewKeyDown"
+                                         MouseWheel="ViewerCountRefreshIntervalText_MouseWheel"
+                                         LostFocus="ViewerCountRefreshIntervalText_LostFocus" />
+                                <Button Grid.Column="4"
+                                        Content="+"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource NumericStepButtonStyle}"
+                                        Click="ViewerCountRefreshIntervalPlus_Click"
+                                        ToolTip="{DynamicResource IncreaseViewerCountRefreshInterval}" />
+                            </Grid>
+                            <TextBlock Text="{DynamicResource ViewerCountRefreshIntervalHelp}"
                                        Foreground="{DynamicResource MutedText}"
                                        FontSize="11"
                                        Margin="0,6,0,0"
@@ -331,6 +354,22 @@
                         <StackPanel>
                             <TextBlock Text="{DynamicResource ObsOverlay}" Style="{StaticResource SectionTitleTextStyle}" Margin="0,0,0,16" />
                             <CheckBox IsChecked="{Binding EnableObsOverlay}" Content="{DynamicResource EnableObsOverlay}" />
+
+                            <TextBlock Text="{DynamicResource MessageVisualTheme}"
+                                       Style="{StaticResource CaptionTextStyle}"
+                                       Margin="0,18,0,7" />
+                            <ComboBox Width="240"
+                                      HorizontalAlignment="Left"
+                                      SelectedValue="{Binding MessageVisualTheme, UpdateSourceTrigger=PropertyChanged}"
+                                      SelectedValuePath="Tag">
+                                <ComboBoxItem Content="{DynamicResource MessageThemeDefault}" Tag="Default" />
+                                <ComboBoxItem Content="{DynamicResource MessageThemeTornBlack}" Tag="TornBlack" />
+                            </ComboBox>
+                            <TextBlock Text="{DynamicResource MessageVisualThemeHelp}"
+                                       Foreground="{DynamicResource MutedText}"
+                                       FontSize="11"
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap" />
 
                             <TextBlock Text="{DynamicResource OverlayUrl}" Style="{StaticResource CaptionTextStyle}" Margin="0,18,0,7" />
                             <Grid>
