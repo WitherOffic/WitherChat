@@ -76,7 +76,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<ChatMessageModel, byte> _visibleMessages =
         new(ReferenceEqualityComparer.Instance);
-    private readonly SemaphoreSlim _messageHydrationGate = new(4, 4);
+    private readonly SemaphoreSlim _messageHydrationGate = new(8, 8);
     private readonly object _userProfileCacheGate = new();
     private readonly Dictionary<string, CachedUserProfile> _userProfileCache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Task<TwitchUser?>> _userProfileRequests = new(StringComparer.Ordinal);
@@ -91,6 +91,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
     private readonly Queue<string> _liveMessageIndexOrder = new();
     private readonly Dictionary<string, PendingChannelPointsMetadata> _pendingChannelPointsMetadata = new(StringComparer.Ordinal);
     private readonly Queue<(string Key, DateTimeOffset ExpiresAt)> _pendingChannelPointsOrder = new();
+    private readonly DispatcherTimer _streamStatusTimer;
     private CancellationTokenSource? _streamStatusCts;
     private CancellationTokenSource? _pinnedMessageCts;
     private Task? _streamStatusTask;
@@ -124,6 +125,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
     private Brush _chatIndicatorBrush = CreateFrozenBrush("#FF6E7482");
     private Brush _streamIndicatorBrush = CreateFrozenBrush("#FF6E7482");
     private bool _isBusy;
+    private bool _isChatMediaLoading;
     private bool _isAddingChannel;
     private bool _autoScroll = true;
     private bool _isConnected;
@@ -137,6 +139,9 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
     private int _messageDrainScheduled;
     private int _pendingChatMessageCount;
     private int _shutdownStarted;
+    private int _chatMediaLoadOperationCount;
+    private long _streamStatusPollingGeneration;
+    private long _streamStatusRefreshGeneration;
     private int _messagePresentationVersion = 1;
     private bool _isUserScrolling;
     private long _lastQueueDropWarning;
@@ -150,6 +155,11 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
     {
         _settings = _settingsService.Load();
         _connectionMode = Settings.ConnectionMode;
+        _streamStatusTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = GetStreamStatusRefreshInterval()
+        };
+        _streamStatusTimer.Tick += StreamStatusTimer_Tick;
         LocalizationService.ApplyToResources(Settings.Language);
         AnimationService.SetReduceMotion(Settings.ReduceMotion);
         _authService = new AuthService(() => AppTwitchDefaults.GetClientId(Settings), _tokenStore, _logger);
@@ -354,6 +364,11 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
     public bool CanAddChannel => EffectiveChannelCount < MaxChannels && !_isAddingChannel;
     public bool HasChannels => Channels.Count > 0;
     public bool HasActiveChannel => ActiveChannel is not null;
+    public bool IsChatMediaLoading
+    {
+        get => _isChatMediaLoading;
+        private set => SetProperty(ref _isChatMediaLoading, value);
+    }
     public bool IsActiveChatConnected => ActiveChannel?.IsConnected == true;
     public bool IsAccountAuthenticated => _currentUser is not null && _authService.HasAccessToken;
     public bool ShowSignInButton => !IsBusy &&
@@ -390,21 +405,6 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
     public AppSettings Settings => _settings;
 
     public bool AlwaysOnTop => Settings.AlwaysOnTop;
-
-    public bool UseTornBlackMessageTheme =>
-        string.Equals(Settings.MessageVisualTheme, "TornBlack", StringComparison.OrdinalIgnoreCase);
-
-    public Brush MessagePrimaryBrush => UseTornBlackMessageTheme
-        ? Brushes.White
-        : GetApplicationBrush("PrimaryText", Brushes.White);
-
-    public Brush MessageSecondaryBrush => UseTornBlackMessageTheme
-        ? Brushes.LightGray
-        : GetApplicationBrush("SecondaryText", Brushes.LightGray);
-
-    public Brush MessageMutedBrush => UseTornBlackMessageTheme
-        ? Brushes.DarkGray
-        : GetApplicationBrush("MutedText", Brushes.DarkGray);
 
     public HorizontalAlignment WindowControlsAlignment =>
         string.Equals(Settings.WindowControlsPosition, "Right", StringComparison.OrdinalIgnoreCase)
@@ -990,6 +990,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         }
 
         Channels.Add(session);
+        StartStreamStatusPolling();
         SetChannelConnectionState(session, "connecting");
         if (activate || ActiveChannel is null)
         {
@@ -1325,6 +1326,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
             _broadcaster = SessionToUser(channel);
             StatusText = L("ChannelConnecting");
             await StartChatLogSessionAsync().ConfigureAwait(true);
+            StartStreamStatusPolling();
             _logger.Info("Primary EventSub connecting.");
             await _eventSubClient.StartAsync(channel.BroadcasterId, _currentUser.Id, _disposeCts.Token).ConfigureAwait(true);
             TrackBackgroundTask(RefreshChannelAssetsInBackgroundAsync());
@@ -1424,6 +1426,11 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         AnimationService.SetReduceMotion(Settings.ReduceMotion);
         ApplyTheme();
         RefreshLocalizedText();
+        if (previous.ViewerCountRefreshIntervalSeconds != Settings.ViewerCountRefreshIntervalSeconds)
+        {
+            StartStreamStatusPolling();
+        }
+
         if (previous.MessageLimit != Settings.MessageLimit)
         {
             var pendingLimit = LiveChatBufferPolicy.GetTarget(Settings.MessageLimit);
@@ -1444,10 +1451,6 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(ShowTimestamps));
         OnPropertyChanged(nameof(ShowBadges));
         OnPropertyChanged(nameof(AlwaysOnTop));
-        OnPropertyChanged(nameof(UseTornBlackMessageTheme));
-        OnPropertyChanged(nameof(MessagePrimaryBrush));
-        OnPropertyChanged(nameof(MessageSecondaryBrush));
-        OnPropertyChanged(nameof(MessageMutedBrush));
         OnPropertyChanged(nameof(WindowControlsAlignment));
         OnPropertyChanged(nameof(WindowControlsFlowDirection));
         OnPropertyChanged(nameof(UseWindowsWindowControls));
@@ -2236,6 +2239,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
 
     private async Task RefreshChannelAssetsInBackgroundAsync()
     {
+        BeginChatMediaLoad();
         var cancellation = BeginChannelAssetRefresh();
         try
         {
@@ -2255,11 +2259,13 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         {
             Interlocked.CompareExchange(ref _channelAssetsCts, null, cancellation);
             cancellation.Dispose();
+            EndChatMediaLoad();
         }
     }
 
     private async Task RefreshReadOnlyChannelAssetsAsync(string channelLogin, string broadcasterId)
     {
+        BeginChatMediaLoad();
         var cancellation = BeginChannelAssetRefresh(channelLogin);
         var targetSession = FindChannel(channelLogin);
         try
@@ -2320,6 +2326,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
             }
 
             cancellation.Dispose();
+            EndChatMediaLoad();
         }
     }
 
@@ -5157,7 +5164,10 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
             {
                 _messageHydrationGate.Release();
             }
-            _messageImageLoads.TryRemove(message, out _);
+            if (_messageImageLoads.TryRemove(message, out _))
+            {
+                EndChatMediaLoad();
+            }
         }
     }
 
@@ -5335,7 +5345,43 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        BeginChatMediaLoad();
         TrackBackgroundTask(LoadMessageImagesSafelyAsync(message));
+    }
+
+    private void BeginChatMediaLoad()
+    {
+        Interlocked.Increment(ref _chatMediaLoadOperationCount);
+        PublishChatMediaLoadingState();
+    }
+
+    private void EndChatMediaLoad()
+    {
+        if (Interlocked.Decrement(ref _chatMediaLoadOperationCount) < 0)
+        {
+            Interlocked.Exchange(ref _chatMediaLoadOperationCount, 0);
+        }
+
+        PublishChatMediaLoadingState();
+    }
+
+    private void PublishChatMediaLoadingState()
+    {
+        var application = Application.Current;
+        if (application is null)
+        {
+            return;
+        }
+
+        void ApplyState() => IsChatMediaLoading = Volatile.Read(ref _chatMediaLoadOperationCount) > 0;
+        if (application.Dispatcher.CheckAccess())
+        {
+            ApplyState();
+        }
+        else
+        {
+            _ = application.Dispatcher.InvokeAsync(ApplyState, DispatcherPriority.Background);
+        }
     }
 
     private void HydrateCachedMessageMedia(ChatMessageModel message)
@@ -5683,6 +5729,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
             session.SavedVerticalOffset = 0;
             session.AutoScroll = true;
             Channels.Remove(session);
+            StartStreamStatusPolling();
             try
             {
                 await _eventSubClient.RemoveBroadcasterAsync(
@@ -5913,11 +5960,14 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    private async Task RefreshStreamStatusAsync(CancellationToken cancellationToken = default)
+    private async Task RefreshStreamStatusAsync(
+        CancellationToken cancellationToken = default,
+        bool logSuccessfulRefresh = false)
     {
         foreach (var session in Channels.Where(channel => !string.IsNullOrWhiteSpace(channel.BroadcasterId)).ToArray())
         {
-            var status = await _streamStatusService.GetStatusAsync(session.BroadcasterId, cancellationToken).ConfigureAwait(false);
+            var broadcasterId = session.BroadcasterId;
+            var status = await _streamStatusService.GetStatusAsync(broadcasterId, cancellationToken).ConfigureAwait(false);
             if (!status.IsAuthoritative)
             {
                 continue;
@@ -5937,63 +5987,115 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
+                if (!Channels.Contains(session) ||
+                    !string.Equals(session.BroadcasterId, broadcasterId, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                var viewerCount = status.IsLive ? status.ViewerCount : 0;
+                var statusChanged = session.IsLive != status.IsLive || session.ViewerCount != viewerCount;
                 session.IsLive = status.IsLive;
-                session.ViewerCount = status.IsLive ? status.ViewerCount : 0;
+                session.ViewerCount = viewerCount;
                 session.StreamTitle = status.Title;
                 session.GameName = status.GameName;
                 session.StreamStartedAt = status.StartedAt;
                 session.HasAuthoritativeStreamStatus = true;
                 if (ReferenceEquals(session, ActiveChannel)) UpdateStreamStatus(status);
+                if (logSuccessfulRefresh || statusChanged)
+                {
+                    _logger.Info(
+                        $"Viewer count refreshed: channel={session.ChannelLogin}, live={status.IsLive}, viewers={viewerCount}");
+                }
             });
         }
     }
 
     private void StartStreamStatusPolling()
     {
+        if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
+        {
+            _ = dispatcher.BeginInvoke(StartStreamStatusPolling, DispatcherPriority.Background);
+            return;
+        }
+
         StopStreamStatusPolling();
-        if (_broadcaster is null || IsShuttingDown)
+        if (IsShuttingDown || !Channels.Any(channel => !string.IsNullOrWhiteSpace(channel.BroadcasterId)))
         {
             return;
         }
 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
         _streamStatusCts = cts;
-        var task = PollStreamStatusAsync(cts);
+        var generation = Interlocked.Increment(ref _streamStatusPollingGeneration);
+        Interlocked.Exchange(ref _streamStatusRefreshGeneration, 0);
+        _streamStatusTimer.Interval = GetStreamStatusRefreshInterval();
+        _streamStatusTimer.Start();
+        _logger.Info($"Viewer count polling started: intervalSeconds={(int)_streamStatusTimer.Interval.TotalSeconds}");
+        var task = RefreshStreamStatusForTimerAsync(cts, generation, logSuccessfulRefresh: true);
         _streamStatusTask = task;
         TrackBackgroundTask(task);
     }
 
-    private async Task PollStreamStatusAsync(CancellationTokenSource cancellation)
+    private void StreamStatusTimer_Tick(object? sender, EventArgs e)
     {
-        var cancellationToken = cancellation.Token;
+        var cancellation = _streamStatusCts;
+        if (cancellation is null || cancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var generation = Volatile.Read(ref _streamStatusPollingGeneration);
+        if (Volatile.Read(ref _streamStatusRefreshGeneration) == generation)
+        {
+            return;
+        }
+
+        var task = RefreshStreamStatusForTimerAsync(cancellation, generation, logSuccessfulRefresh: false);
+        _streamStatusTask = task;
+        TrackBackgroundTask(task);
+    }
+
+    private async Task RefreshStreamStatusForTimerAsync(
+        CancellationTokenSource cancellation,
+        long generation,
+        bool logSuccessfulRefresh)
+    {
+        if (Interlocked.CompareExchange(ref _streamStatusRefreshGeneration, generation, 0) != 0)
+        {
+            return;
+        }
+
         try
         {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(60), cancellationToken).ConfigureAwait(true);
-                    await RefreshStreamStatusAsync(cancellationToken).ConfigureAwait(true);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warn($"Stream status polling failed: {ex.GetType().Name}");
-                }
-            }
+            await RefreshStreamStatusAsync(cancellation.Token, logSuccessfulRefresh).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"Stream status polling failed: {ex.GetType().Name}");
         }
         finally
         {
-            Interlocked.CompareExchange(ref _streamStatusCts, null, cancellation);
-            cancellation.Dispose();
+            Interlocked.CompareExchange(ref _streamStatusRefreshGeneration, 0, generation);
         }
+    }
+
+    private TimeSpan GetStreamStatusRefreshInterval()
+    {
+        var seconds = Math.Clamp(
+            Settings.ViewerCountRefreshIntervalSeconds,
+            AppSettings.MinViewerCountRefreshIntervalSeconds,
+            AppSettings.MaxViewerCountRefreshIntervalSeconds);
+        return TimeSpan.FromSeconds(seconds);
     }
 
     private void StopStreamStatusPolling()
     {
+        _streamStatusTimer.Stop();
+        Interlocked.Increment(ref _streamStatusPollingGeneration);
         var cts = Interlocked.Exchange(ref _streamStatusCts, null);
         if (cts is null)
         {
@@ -6001,6 +6103,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         }
 
         CancelSafely(cts);
+        cts.Dispose();
     }
 
     private void StartPinnedMessagePolling()
@@ -6693,9 +6796,6 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         return brush;
     }
 
-    private static Brush GetApplicationBrush(string key, Brush fallback) =>
-        Application.Current?.Resources[key] as Brush ?? fallback;
-
     private static void SetApplicationFont(string fontId)
     {
         var source = fontId switch
@@ -6753,6 +6853,7 @@ public sealed class ChatViewModel : ObservableObject, IAsyncDisposable
         target.ChannelSettingsMigrationVersion = source.ChannelSettingsMigrationVersion;
         target.FontSize = source.FontSize;
         target.MessageLimit = source.MessageLimit;
+        target.ViewerCountRefreshIntervalSeconds = source.ViewerCountRefreshIntervalSeconds;
         target.ShowTimestamps = source.ShowTimestamps;
         target.EnableTwitchEmotes = source.EnableTwitchEmotes;
         target.EnableBttvEmotes = source.EnableBttvEmotes;

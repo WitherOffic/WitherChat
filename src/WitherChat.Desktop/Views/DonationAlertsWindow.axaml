@@ -1,0 +1,485 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:WitherChat.Desktop.ViewModels"
+        xmlns:controls="using:WitherChat.Desktop.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        x:Class="WitherChat.Desktop.Views.DonationAlertsWindow"
+        x:DataType="vm:MainWindowViewModel"
+        mc:Ignorable="d"
+        d:DesignWidth="520" d:DesignHeight="620"
+        Width="520" Height="620" MinWidth="420" MinHeight="420"
+        Classes="wither-window"
+        Icon="/Assets/WitherChat.ico"
+        Title="WitherChat — DonationAlerts"
+        WindowDecorations="None"
+        Win32Properties.WindowCornerPreference="Round"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="44"
+        CanResize="True" Topmost="True" ClipToBounds="True"
+        Classes.reduce-motion="{Binding ReduceMotion}"
+        Background="{DynamicResource AppBackgroundBrush}"
+        AutomationProperties.AutomationId="DonationAlertsWindow">
+    <Window.Styles>
+        <Style Selector="Border.donation-presentation">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Window.reduce-motion Border.donation-presentation">
+            <Setter Property="Transitions">
+                <Transitions />
+            </Setter>
+        </Style>
+    </Window.Styles>
+    <Grid x:Name="WindowRoot" RowDefinitions="44,*"
+          Background="{DynamicResource AppBackgroundBrush}">
+        <Border Grid.Row="0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="14,0,8,0" ColumnSpacing="6">
+                <Border Grid.Column="0" Background="Transparent"
+                        PointerPressed="TitleBar_OnPointerPressed"
+                        AutomationProperties.AutomationId="DonationWindowDragArea">
+                    <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                        <controls:DonationAlertsLogo Width="22" Height="25" />
+                        <TextBlock Text="{Binding Texts.DonationAlertsWindowTitle}"
+                                   VerticalAlignment="Center" FontWeight="SemiBold" />
+                        <Ellipse Width="7" Height="7" Fill="{Binding DonationAlertsStatusBrush}"
+                                 VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+                <Button x:Name="DonationHelpButton" Grid.Column="1" Classes="context-help" Width="28" Height="28"
+                        Content="?" Command="{Binding StartContextTutorialCommand}"
+                        CommandParameter="Donations"
+                        ToolTip.Tip="{Binding Texts.OpenDonationsTutorial}"
+                        AutomationProperties.Name="{Binding Texts.OpenDonationsTutorial}"
+                        AutomationProperties.AutomationId="DonationHelpButton" />
+                <Button Grid.Column="2" Classes="icon-button" Width="32" Height="32"
+                        Click="MinimizeButton_OnClick" ToolTip.Tip="{Binding Texts.Minimize}"
+                        AutomationProperties.Name="{Binding Texts.Minimize}"
+                        AutomationProperties.AutomationId="DonationWindowMinimizeButton">
+                    <Border Width="12" Height="2" CornerRadius="1"
+                            Background="{DynamicResource SecondaryTextBrush}" />
+                </Button>
+                <Button Grid.Column="3" Classes="icon-button" Width="32" Height="32"
+                        Click="CloseButton_OnClick" ToolTip.Tip="{Binding Texts.Close}"
+                        AutomationProperties.Name="{Binding Texts.Close}"
+                        AutomationProperties.AutomationId="DonationWindowCloseButton">
+                    <Path Data="M6,6 L18,18 M18,6 L6,18" Width="14" Height="14"
+                          Stroke="{DynamicResource SecondaryTextBrush}" StrokeThickness="1.7"
+                          StrokeLineCap="Round" Stretch="Uniform" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <Grid x:Name="DonationContentRoot" Grid.Row="1" Margin="16,14,16,16">
+            <Border x:Name="DonationConnectPanel" Classes="subtle-card" Padding="22"
+                    IsVisible="{Binding ShowDonationConnectPanel}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                            MaxWidth="350" Spacing="11">
+                    <controls:DonationAlertsLogo Width="48" Height="56"
+                                                 HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding Texts.DonationAlertsAccountNotConnected}" FontSize="20"
+                               FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Texts.DonationAlertsConnectDescription}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               TextAlignment="Center" TextWrapping="Wrap" />
+                    <Button Name="DonationWindowConnectButton" Classes="primary"
+                            Content="{Binding Texts.ConnectDonationAlerts}"
+                            Command="{Binding ConnectDonationAlertsCommand}"
+                            IsEnabled="{Binding CanConnectDonationAlerts}"
+                            HorizontalAlignment="Center"
+                            AutomationProperties.AutomationId="DonationWindowConnectButton" />
+                    <TextBlock Text="{Binding DonationAlertsStatus}" FontSize="12"
+                               IsVisible="{Binding ShowDonationAlertsStatusDetail}"
+                               Foreground="{DynamicResource MutedTextBrush}"
+                               TextAlignment="Center" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="DonationConnectStatus" />
+                </StackPanel>
+            </Border>
+
+            <Grid IsVisible="{Binding ShowDonationHistoryPanel}"
+                  RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="12">
+                <Grid x:Name="DonationHistoryHeader" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding Texts.RecentDonations}"
+                                   FontSize="21" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding DonationHistoryCountLabel}"
+                                   FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    </StackPanel>
+                    <ProgressBar Grid.Column="1" Width="46" MinWidth="0" Height="3"
+                                 IsIndeterminate="True" Foreground="{DynamicResource DonationAccentBrush}"
+                                 Background="Transparent"
+                                 VerticalAlignment="Center"
+                                 IsVisible="{Binding IsDonationHistoryLoading}"
+                                 AutomationProperties.AutomationId="DonationHistoryHeaderProgress" />
+                    <Button Grid.Column="2" Classes="icon-button" Width="34" Height="34"
+                            Command="{Binding RefreshDonationHistoryCommand}"
+                            ToolTip.Tip="{Binding Texts.RefreshDonations}"
+                            AutomationProperties.Name="{Binding Texts.RefreshDonations}"
+                            AutomationProperties.AutomationId="RefreshDonationHistoryButton">
+                        <Path Data="M19,8 A8,8 0 1 0 20,14 M19,4 V9 H14"
+                              Stroke="{DynamicResource SecondaryTextBrush}"
+                              StrokeThickness="1.65" StrokeLineCap="Round"
+                              StrokeJoin="Round" Stretch="Uniform"
+                              Width="17" Height="17" />
+                    </Button>
+                </Grid>
+
+                <Border x:Name="DonationControlStatusCard"
+                        Grid.Row="1" Padding="10,8" CornerRadius="8"
+                        Background="#16FFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                        <Ellipse Width="7" Height="7"
+                                 Fill="{Binding DonationAlertsObsControlBrush}"
+                                 VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding DonationAlertsObsControlStatus}"
+                                       FontSize="10" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding DonationControlError}"
+                                       IsVisible="{Binding HasDonationControlError}"
+                                       FontSize="10" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource DangerBrush}" />
+                        </StackPanel>
+                        <Button Grid.Column="2" Padding="8,4"
+                                Content="{Binding Texts.FindDonationAlertsObsSource}"
+                                IsVisible="{Binding !IsDonationAlertsObsControlConfigured}"
+                                Command="{Binding RefreshDonationAlertsObsControlCommand}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Padding="10,8" CornerRadius="8"
+                        Background="#181F8CFF" BorderBrush="#508B82FF" BorderThickness="1"
+                        IsVisible="{Binding IsDonationWaitingForServerStart}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                        <ProgressBar Width="30" MinWidth="0" Height="3" IsIndeterminate="True"
+                                     Foreground="{DynamicResource DonationAccentBrush}" Background="Transparent"
+                                     VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding DonationPlaybackStatusText}"
+                                   FontSize="10" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="10">
+                    <ScrollViewer x:Name="DonationHistoryScrollViewer"
+                                  Grid.Row="1"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Hidden"
+                                  AllowAutoHide="False"
+                                  Margin="0,0,3,0"
+                                  AutomationProperties.AutomationId="DonationHistoryScrollViewer"
+                                  IsVisible="{Binding HasDonationHistory}">
+                        <ItemsControl ItemsSource="{Binding DonationHistory}"
+                                      AutomationProperties.AutomationId="DonationHistoryList">
+                            <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DonationHistoryItemViewModel">
+                                <Border Margin="0,0,0,10" Background="#26FFFFFF"
+                                        BorderBrush="#18FFFFFF" BorderThickness="1"
+                                        CornerRadius="9" ClipToBounds="True">
+                                    <Grid ColumnDefinitions="34,*" MinHeight="94">
+                                        <Border Background="#FF8424">
+                                            <controls:DonationAlertsLogo Width="17" Height="20"
+                                                                         Fill="White"
+                                                                         HorizontalAlignment="Center"
+                                                                         VerticalAlignment="Center" />
+                                        </Border>
+                                        <Grid Grid.Column="1" Margin="13,10,12,9"
+                                              RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                                            <WrapPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Username}" FontWeight="Bold" />
+                                                <TextBlock Margin="5,0,0,0"
+                                                           Text="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Texts.DonationSent}"
+                                                           Foreground="{DynamicResource MutedTextBrush}" />
+                                                <TextBlock Margin="5,0,0,0" Text="{Binding AmountText}"
+                                                           FontWeight="SemiBold" />
+                                                <Border Margin="7,0,0,0" Padding="6,1" CornerRadius="7"
+                                                        Background="#24FF8A34" IsVisible="{Binding IsAudio}">
+                                                    <TextBlock Text="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Texts.DonationAudioMessage}"
+                                                               FontSize="9" Foreground="{DynamicResource DonationAccentSoftBrush}" />
+                                                </Border>
+                                            </WrapPanel>
+                                            <TextBlock Grid.Row="1" Text="{Binding Message}"
+                                                       TextWrapping="Wrap" MaxHeight="54"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Message}"
+                                                       AutomationProperties.Name="{Binding Message}"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                                            <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
+                                                <Button Classes="icon-button" Width="27" Height="27"
+                                                        Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).ReplayDonationCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        IsEnabled="{Binding !$parent[Window].((vm:MainWindowViewModel)DataContext).IsDonationControlBusy}"
+                                                        ToolTip.Tip="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Texts.RepeatDonation}"
+                                                        AutomationProperties.Name="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Texts.RepeatDonation}"
+                                                        AutomationProperties.AutomationId="DonationHistoryReplayButton">
+                                                    <Path Data="M19,8 A8,8 0 1 0 20,14 M19,4 V9 H14"
+                                                          Stroke="{DynamicResource SecondaryTextBrush}"
+                                                          StrokeThickness="1.55" StrokeLineCap="Round"
+                                                          StrokeJoin="Round" Stretch="Uniform"
+                                                          Width="14" Height="14" />
+                                                </Button>
+                                                <TextBlock Grid.Column="1" Text="{Binding TimeText}"
+                                                           HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                           FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                                            </Grid>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Border x:Name="DonationHistoryLoadingOverlay"
+                            Grid.Row="1" IsVisible="{Binding IsDonationHistoryLoading}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Width="224" Padding="18,12" CornerRadius="12"
+                            Background="{DynamicResource SurfaceRaisedBrush}"
+                            BorderBrush="{DynamicResource JumpLatestGlassBorderBrush}"
+                            BorderThickness="1" BoxShadow="0 8 22 0 #28000000"
+                            IsHitTestVisible="False" ZIndex="20"
+                            AutomationProperties.AutomationId="DonationHistoryLoadingOverlay">
+                        <StackPanel Spacing="8">
+                            <ProgressBar x:Name="DonationHistoryLoadingProgress"
+                                         Width="156" MinWidth="0" Height="3" IsIndeterminate="True"
+                                         Foreground="{DynamicResource DonationAccentBrush}" Background="#18FFFFFF"
+                                         AutomationProperties.AutomationId="DonationHistoryLoadingProgress" />
+                            <TextBlock Text="{Binding Texts.DonationHistoryLoading}"
+                                       FontSize="11" TextAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </StackPanel>
+                    </Border>
+                    <StackPanel Grid.Row="1" IsVisible="{Binding ShowDonationHistoryEmptyState}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                MaxWidth="310" Spacing="7">
+                        <controls:DonationAlertsLogo Width="38" Height="44"
+                                                     HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding Texts.DonationHistoryEmpty}"
+                                   FontSize="18" FontWeight="SemiBold" TextAlignment="Center" />
+                        <TextBlock Text="{Binding Texts.DonationHistoryEmptyDescription}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   TextAlignment="Center" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="1" Text="{Binding DonationHistoryError}"
+                               IsVisible="{Binding HasDonationHistoryError}"
+                               MaxWidth="360" TextAlignment="Center" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource DangerBrush}" />
+
+                    <Border x:Name="CurrentDonationPresentation"
+                            Classes="donation-presentation"
+                            Grid.Row="0"
+                            IsVisible="{Binding HasCurrentDonation}"
+                            Opacity="{Binding DonationPresentationOpacity}"
+                            VerticalAlignment="Top" ZIndex="30"
+                            Padding="16,14,16,0"
+                            CornerRadius="12" ClipToBounds="True"
+                            Background="#FF191B25" BorderBrush="#A8FF8424" BorderThickness="1.5"
+                            AutomationProperties.AutomationId="CurrentDonationPresentation">
+                        <Grid RowDefinitions="Auto,Auto,Auto,5" RowSpacing="10">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="11">
+                                <Border Width="38" Height="38" CornerRadius="10"
+                                        Background="#30FF8424">
+                                    <controls:DonationAlertsLogo Width="21" Height="25"
+                                                                 HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Text="{Binding Texts.CurrentDonation}" FontSize="10"
+                                               Foreground="{DynamicResource DonationAccentBrush}" />
+                                    <TextBlock Text="{Binding CurrentDonationUsername}"
+                                               FontSize="17" FontWeight="Bold"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Text="{Binding CurrentDonationAmountText}"
+                                           VerticalAlignment="Center" FontSize="20" FontWeight="Bold"
+                                           Foreground="{DynamicResource DonationAccentBrush}" />
+                            </Grid>
+                            <TextBlock Grid.Row="1" Text="{Binding CurrentDonationMessage}"
+                                       FontSize="15" LineHeight="21" TextWrapping="Wrap"
+                                       MaxHeight="70" TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding CurrentDonationMessage}"
+                                       AutomationProperties.Name="{Binding CurrentDonationMessage}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock Grid.Row="2" Text="{Binding CurrentDonationRemainingLabel}"
+                                       FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                            <ProgressBar Grid.Row="3" Margin="-16,0,-16,0" Height="5"
+                                         Minimum="0" Maximum="100"
+                                         Value="{Binding DonationDisplayProgress}"
+                                         Foreground="{DynamicResource DonationAccentBrush}" Background="#26FFFFFF" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <Border x:Name="CurrentDonationActionBar"
+                        Grid.Row="4" Padding="12,10" CornerRadius="10"
+                        Background="#18FF8424" BorderBrush="#48FF8424" BorderThickness="1"
+                        IsVisible="{Binding HasCurrentDonation}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding DonationQueueLabel}"
+                                       IsVisible="{Binding HasPendingDonations}" FontSize="10"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding CurrentDonationRemainingLabel}" FontSize="10"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <Button Content="{Binding Texts.ClearDonationQueue}"
+                                    Command="{Binding ClearDonationQueueCommand}"
+                                    IsVisible="{Binding HasPendingDonations}" />
+                            <Button Classes="primary" Content="{Binding Texts.HideDonation}"
+                                    Command="{Binding SkipDonationCommand}"
+                                    IsEnabled="{Binding CanHideDonation}"
+                                    AutomationProperties.AutomationId="SkipDonationButton" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border x:Name="DonationMiddleScrollIndicator"
+                    Width="32" Height="32"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    ZIndex="120"
+                    IsVisible="False"
+                    IsHitTestVisible="False"
+                    CornerRadius="16"
+                    Background="#D0202633"
+                    BorderBrush="#B0909CAF"
+                    BorderThickness="1"
+                    AutomationProperties.AutomationId="DonationMiddleScrollIndicator">
+                <Border.RenderTransform>
+                    <TranslateTransform />
+                </Border.RenderTransform>
+                <Grid>
+                    <Path Data="M6,7 L10,3 L14,7"
+                          Stroke="{DynamicResource PrimaryTextBrush}"
+                          StrokeThickness="1.4"
+                          StrokeLineCap="Round"
+                          StrokeJoin="Round"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Top"
+                          Margin="0,5,0,0" />
+                    <Ellipse Width="4" Height="4"
+                             Fill="{DynamicResource SecondaryTextBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                    <Path Data="M6,3 L10,7 L14,3"
+                          Stroke="{DynamicResource PrimaryTextBrush}"
+                          StrokeThickness="1.4"
+                          StrokeLineCap="Round"
+                          StrokeJoin="Round"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Bottom"
+                          Margin="0,0,0,5" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="DonationTutorialOverlay"
+              Grid.RowSpan="2" ZIndex="200"
+              IsVisible="{Binding ShowDonationTutorial}"
+              AutomationProperties.AutomationId="DonationTutorialOverlay"
+              ClipToBounds="True">
+            <Canvas x:Name="DonationTutorialFocusCanvas" IsHitTestVisible="False">
+                <Path x:Name="DonationTutorialDimmingMask" Fill="#DE00050D" />
+                <Border x:Name="DonationTutorialTargetHighlight"
+                        BorderBrush="#909A8CFF" BorderThickness="2"
+                        CornerRadius="14" BoxShadow="0 0 24 0 #5068E7D1" />
+            </Canvas>
+
+            <Border ZIndex="10" Background="#01000000"
+                    PointerPressed="DonationTutorialBlocker_OnPointerPressed"
+                    PointerWheelChanged="DonationTutorialBlocker_OnPointerWheelChanged" />
+            <Border ZIndex="15" Height="44" VerticalAlignment="Top"
+                    Background="#01000000" PointerPressed="TitleBar_OnPointerPressed" />
+
+            <Border x:Name="DonationTutorialCard"
+                    AutomationProperties.AutomationId="DonationTutorialCard"
+                    ZIndex="20" Width="380" MaxWidth="380"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource OnboardingGlassBrush}"
+                    BorderBrush="#709A8CFF" BorderThickness="1.5"
+                    CornerRadius="22" ClipToBounds="True"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    BoxShadow="0 20 54 4 #A0000000, 0 0 24 0 #2868E7D1">
+                <Grid RowDefinitions="4,*">
+                    <Border Background="{DynamicResource AccentGradientBrush}" />
+                    <ScrollViewer Grid.Row="1"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Hidden">
+                    <StackPanel Margin="21,17,21,19" Spacing="12">
+                        <Grid ColumnDefinitions="40,*,Auto">
+                            <Border Width="34" Height="34" CornerRadius="12"
+                                    Background="{DynamicResource AccentGradientBrush}">
+                                <TextBlock Text="?" FontSize="17" FontWeight="Bold"
+                                           Foreground="#FF081020"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="9,0,0,0"
+                                        VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="{Binding TutorialEyebrow}" FontSize="9"
+                                           FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" />
+                                <TextBlock Text="DonationAlerts" FontSize="12"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                            </StackPanel>
+                            <Border Grid.Column="2" Padding="8,4" CornerRadius="10"
+                                    Background="#18FFFFFF" BorderBrush="#30FFFFFF"
+                                    BorderThickness="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding OnboardingProgressText}" FontSize="10"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                            </Border>
+                        </Grid>
+
+                        <StackPanel Spacing="7">
+                            <TextBlock Text="{Binding OnboardingTitle}" FontSize="20"
+                                       FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding OnboardingDescription}" FontSize="11.5"
+                                       LineHeight="17" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </StackPanel>
+                        <Border Padding="10,8" CornerRadius="11"
+                                Background="#149A8CFF" BorderBrush="#389A8CFF"
+                                BorderThickness="1">
+                            <TextBlock Text="{Binding OnboardingHint}" FontSize="10"
+                                       LineHeight="15" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </Border>
+                        <ProgressBar Classes="onboarding-progress" MinWidth="0"
+                                     Minimum="0" Maximum="{Binding OnboardingTotalSteps}"
+                                     Value="{Binding OnboardingStepNumber}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto,8,Auto">
+                            <Button Grid.Column="0" Classes="ghost" Padding="7,5"
+                                    Content="{Binding TutorialCloseLabel}"
+                                    Command="{Binding SkipOnboardingCommand}"
+                                    AutomationProperties.AutomationId="DonationTutorialCloseButton" />
+                            <Button Grid.Column="2" Classes="onboarding-secondary"
+                                    IsVisible="{Binding CanGoBackInOnboarding}"
+                                    Content="{Binding Texts.OnboardingBack}"
+                                    Command="{Binding PreviousOnboardingCommand}"
+                                    AutomationProperties.AutomationId="DonationTutorialBackButton" />
+                            <Button x:Name="DonationTutorialNextButton" Grid.Column="4"
+                                    Classes="primary" MinWidth="104"
+                                    Content="{Binding OnboardingNextLabel}"
+                                    Command="{Binding NextOnboardingCommand}"
+                                    AutomationProperties.AutomationId="DonationTutorialNextButton" />
+                        </Grid>
+                    </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Visual marker only. Resize hit testing is calculated by the window so
+             no transparent element can sit above the interactive content. -->
+        <Path Grid.RowSpan="2" Width="20" Height="20"
+              HorizontalAlignment="Right" VerticalAlignment="Bottom"
+              Data="M7,17 L17,7 M12,17 L17,12"
+              Stroke="{DynamicResource MutedTextBrush}" StrokeThickness="1.3"
+              StrokeLineCap="Round" IsHitTestVisible="False" ZIndex="100"
+              AutomationProperties.AutomationId="DonationWindowResizeMarker" />
+    </Grid>
+</Window>

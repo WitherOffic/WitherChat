@@ -57,11 +57,13 @@ public partial class SettingsPanel : UserControl
         ChatLogService.CleanupEmptySessions(Settings);
         FontSizeText.Text = ((int)Math.Round(Settings.FontSize)).ToString(CultureInfo.CurrentCulture);
         MessageLimitText.Text = Settings.MessageLimit.ToString(CultureInfo.CurrentCulture);
+        ViewerCountRefreshIntervalText.Text = Settings.ViewerCountRefreshIntervalSeconds.ToString(CultureInfo.CurrentCulture);
         RefreshModeText();
         RefreshAccountActionText();
         RefreshChatLogsFolderHint();
         DataObject.AddPastingHandler(FontSizeText, NumberOnly_Pasting);
         DataObject.AddPastingHandler(MessageLimitText, NumberOnly_Pasting);
+        DataObject.AddPastingHandler(ViewerCountRefreshIntervalText, NumberOnly_Pasting);
     }
 
     public AppSettings Settings { get; }
@@ -95,7 +97,11 @@ public partial class SettingsPanel : UserControl
             }
 
             return !string.Equals(FontSizeText.Text.Trim(), ((int)Math.Round(Settings.FontSize)).ToString(CultureInfo.CurrentCulture), StringComparison.Ordinal) ||
-                   !string.Equals(MessageLimitText.Text.Trim(), Settings.MessageLimit.ToString(CultureInfo.CurrentCulture), StringComparison.Ordinal);
+                   !string.Equals(MessageLimitText.Text.Trim(), Settings.MessageLimit.ToString(CultureInfo.CurrentCulture), StringComparison.Ordinal) ||
+                   !string.Equals(
+                       ViewerCountRefreshIntervalText.Text.Trim(),
+                       Settings.ViewerCountRefreshIntervalSeconds.ToString(CultureInfo.CurrentCulture),
+                       StringComparison.Ordinal);
         }
     }
 
@@ -357,6 +363,8 @@ public partial class SettingsPanel : UserControl
     private void FontSizePlus_Click(object sender, RoutedEventArgs e) => AdjustFontSize(1);
     private void MessageLimitMinus_Click(object sender, RoutedEventArgs e) => AdjustMessageLimit(-100);
     private void MessageLimitPlus_Click(object sender, RoutedEventArgs e) => AdjustMessageLimit(100);
+    private void ViewerCountRefreshIntervalMinus_Click(object sender, RoutedEventArgs e) => AdjustViewerCountRefreshInterval(-15);
+    private void ViewerCountRefreshIntervalPlus_Click(object sender, RoutedEventArgs e) => AdjustViewerCountRefreshInterval(15);
 
     private void FontSizeText_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -366,6 +374,14 @@ public partial class SettingsPanel : UserControl
     private void MessageLimitText_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         HandleNumericKey(e, () => AdjustMessageLimit(100), () => AdjustMessageLimit(-100));
+    }
+
+    private void ViewerCountRefreshIntervalText_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        HandleNumericKey(
+            e,
+            () => AdjustViewerCountRefreshInterval(15),
+            () => AdjustViewerCountRefreshInterval(-15));
     }
 
     private void FontSizeText_MouseWheel(object sender, MouseWheelEventArgs e)
@@ -380,8 +396,15 @@ public partial class SettingsPanel : UserControl
         e.Handled = true;
     }
 
+    private void ViewerCountRefreshIntervalText_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        AdjustViewerCountRefreshInterval(e.Delta > 0 ? 15 : -15);
+        e.Handled = true;
+    }
+
     private void FontSizeText_LostFocus(object sender, RoutedEventArgs e) => CommitFontSize();
     private void MessageLimitText_LostFocus(object sender, RoutedEventArgs e) => CommitMessageLimit();
+    private void ViewerCountRefreshIntervalText_LostFocus(object sender, RoutedEventArgs e) => CommitViewerCountRefreshInterval();
 
     private void NumberOnly_PreviewTextInput(object sender, TextCompositionEventArgs e)
     {
@@ -432,10 +455,21 @@ public partial class SettingsPanel : UserControl
         MessageLimitText.Text = Settings.MessageLimit.ToString(CultureInfo.CurrentCulture);
     }
 
+    private void AdjustViewerCountRefreshInterval(int delta)
+    {
+        CommitViewerCountRefreshInterval();
+        Settings.ViewerCountRefreshIntervalSeconds = Math.Clamp(
+            Settings.ViewerCountRefreshIntervalSeconds + delta,
+            AppSettings.MinViewerCountRefreshIntervalSeconds,
+            AppSettings.MaxViewerCountRefreshIntervalSeconds);
+        ViewerCountRefreshIntervalText.Text = Settings.ViewerCountRefreshIntervalSeconds.ToString(CultureInfo.CurrentCulture);
+    }
+
     private void CommitNumericValues()
     {
         CommitFontSize();
         CommitMessageLimit();
+        CommitViewerCountRefreshInterval();
     }
 
     private void CommitFontSize()
@@ -463,5 +497,20 @@ public partial class SettingsPanel : UserControl
             5000);
         Settings.MessageLimit = value;
         MessageLimitText.Text = value.ToString(CultureInfo.CurrentCulture);
+    }
+
+    private void CommitViewerCountRefreshInterval()
+    {
+        if (!int.TryParse(ViewerCountRefreshIntervalText.Text.Trim(), out var value))
+        {
+            value = Settings.ViewerCountRefreshIntervalSeconds;
+        }
+
+        value = Math.Clamp(
+            value,
+            AppSettings.MinViewerCountRefreshIntervalSeconds,
+            AppSettings.MaxViewerCountRefreshIntervalSeconds);
+        Settings.ViewerCountRefreshIntervalSeconds = value;
+        ViewerCountRefreshIntervalText.Text = value.ToString(CultureInfo.CurrentCulture);
     }
 }

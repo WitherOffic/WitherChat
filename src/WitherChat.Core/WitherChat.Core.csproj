@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12.0</LangVersion>
+    <AssemblyName>WitherChat.Core</AssemblyName>
+    <RootNamespace>WitherChat.Core</RootNamespace>
+    <Company>WitherChat</Company>
+    <Authors>WitherChat</Authors>
+    <Product>WitherChat</Product>
+    <Copyright>WitherChat</Copyright>
+    <Description>Cross-platform core for WitherChat.</Description>
+    <Version>0.5.1-alpha</Version>
+    <FileVersion>0.5.1.0</FileVersion>
+    <AssemblyVersion>0.5.1.0</AssemblyVersion>
+    <InformationalVersion>0.5.1A</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Deterministic>true</Deterministic>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\WitherChat\Assets\Themes\chat_message_torn_black_overlay.png"
+                      Link="Assets\Themes\chat_message_torn_black_overlay.png" />
+    <EmbeddedResource Include="..\WitherChat\Assets\Fonts\Inter-Variable.ttf"
+                      Link="Assets\Fonts\Inter-Variable.ttf" />
+  </ItemGroup>
+</Project>

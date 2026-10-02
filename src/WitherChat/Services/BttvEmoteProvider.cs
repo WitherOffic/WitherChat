@@ -28,8 +28,13 @@ public sealed class BttvEmoteProvider : IThirdPartyEmoteProvider, IDisposable
     public async Task<IReadOnlyList<ThirdPartyEmote>> LoadEmotesAsync(string twitchBroadcasterId, CancellationToken cancellationToken = default)
     {
         var emotes = new List<ThirdPartyEmote>(256);
+        var globalTask = TryGetJsonAsync("cached/emotes/global", cancellationToken);
+        var channelTask = !string.IsNullOrWhiteSpace(twitchBroadcasterId)
+            ? TryGetJsonAsync("cached/users/twitch/" + Uri.EscapeDataString(twitchBroadcasterId), cancellationToken)
+            : Task.FromResult<JsonDocument?>(null);
 
-        using (var global = await TryGetJsonAsync("cached/emotes/global", cancellationToken).ConfigureAwait(false))
+        await Task.WhenAll(globalTask, channelTask).ConfigureAwait(false);
+        using (var global = await globalTask.ConfigureAwait(false))
         {
             if (global?.RootElement.ValueKind == JsonValueKind.Array)
             {
@@ -37,10 +42,8 @@ public sealed class BttvEmoteProvider : IThirdPartyEmoteProvider, IDisposable
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(twitchBroadcasterId))
+        using (var channel = await channelTask.ConfigureAwait(false))
         {
-            var url = "cached/users/twitch/" + Uri.EscapeDataString(twitchBroadcasterId);
-            using var channel = await TryGetJsonAsync(url, cancellationToken).ConfigureAwait(false);
             if (channel is not null)
             {
                 if (channel.RootElement.TryGetProperty("channelEmotes", out var channelEmotes) &&

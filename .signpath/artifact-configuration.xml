@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Draft for provider review; not evidence of enrollment or a signature. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+    <parameter name="fileVersion" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="WitherChat.exe"
+             product-name="WitherChat" company-name="WitherChat"
+             product-version="${version}" file-version="${fileVersion}">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

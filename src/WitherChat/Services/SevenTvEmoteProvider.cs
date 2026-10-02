@@ -41,8 +41,14 @@ public sealed class SevenTvEmoteProvider : IThirdPartyEmoteProvider, IDisposable
         var channelSetId = string.Empty;
         var channelCount = 0;
         var error = "none";
+        var validBroadcasterId = ulong.TryParse(twitchBroadcasterId, out _);
+        var globalTask = TryGetJsonAsync("emote-sets/global", cancellationToken);
+        var channelTask = validBroadcasterId
+            ? TryGetJsonAsync("users/twitch/" + Uri.EscapeDataString(twitchBroadcasterId), cancellationToken)
+            : Task.FromResult<JsonPayload?>(null);
 
-        using (var global = await TryGetJsonAsync("emote-sets/global", cancellationToken).ConfigureAwait(false))
+        await Task.WhenAll(globalTask, channelTask).ConfigureAwait(false);
+        using (var global = await globalTask.ConfigureAwait(false))
         {
             if (global is not null &&
                 global.Document.RootElement.TryGetProperty("emotes", out var globalEmotes) &&
@@ -53,10 +59,9 @@ public sealed class SevenTvEmoteProvider : IThirdPartyEmoteProvider, IDisposable
             }
         }
 
-        if (ulong.TryParse(twitchBroadcasterId, out _))
+        if (validBroadcasterId)
         {
-            var url = "users/twitch/" + Uri.EscapeDataString(twitchBroadcasterId);
-            using var channel = await TryGetJsonAsync(url, cancellationToken).ConfigureAwait(false);
+            using var channel = await channelTask.ConfigureAwait(false);
             if (channel is not null &&
                 channel.Document.RootElement.TryGetProperty("emote_set", out var emoteSet) &&
                 emoteSet.ValueKind == JsonValueKind.Object &&

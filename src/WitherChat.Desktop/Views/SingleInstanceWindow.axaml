@@ -1,0 +1,142 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="WitherChat.Desktop.Views.SingleInstanceWindow"
+        Width="460"
+        Height="260"
+        MinWidth="460"
+        MinHeight="260"
+        MaxWidth="460"
+        MaxHeight="260"
+        Classes="wither-window"
+        Icon="/Assets/WitherChat.ico"
+        Title="WitherChat"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="True"
+        Topmost="True"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+    <Border x:Name="WindowSurface"
+            CornerRadius="18"
+            ClipToBounds="True"
+            Background="{DynamicResource AppBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderStrongBrush}"
+            BorderThickness="1"
+            RenderTransformOrigin="50%,50%">
+        <Grid RowDefinitions="42,*">
+            <Ellipse Width="230" Height="230"
+                     HorizontalAlignment="Left"
+                     VerticalAlignment="Top"
+                     Margin="-125,-145,0,0"
+                     Opacity="0.18"
+                     IsHitTestVisible="False">
+                <Ellipse.Fill>
+                    <RadialGradientBrush>
+                        <GradientStop Color="#724A7DFF" Offset="0" />
+                        <GradientStop Color="#184A7DFF" Offset="0.62" />
+                        <GradientStop Color="#004A7DFF" Offset="1" />
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+
+            <Border Grid.Row="0"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    PointerPressed="TitleBar_OnPointerPressed">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                Margin="15,0"
+                                VerticalAlignment="Center">
+                        <Button x:Name="TrafficCloseButton" Classes="traffic"
+                                Background="#FFFF5F57"
+                                AutomationProperties.AutomationId="SingleInstanceTrafficCloseButton"
+                                Click="CloseButton_OnClick" />
+                        <Border Width="14" Height="14" CornerRadius="7" Background="#FFFFBD2E"
+                                IsHitTestVisible="False" />
+                        <Border Width="14" Height="14" CornerRadius="7" Background="#FF28C840"
+                                IsHitTestVisible="False" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1"
+                               Text="WitherChat"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontSize="12"
+                               FontWeight="SemiBold" />
+                    <Button x:Name="CaptionCloseButton" Grid.Column="2"
+                            Classes="caption close"
+                            AutomationProperties.AutomationId="SingleInstanceCaptionCloseButton"
+                            Width="42"
+                            Margin="0,0,4,0"
+                            HorizontalAlignment="Right"
+                            Click="CloseButton_OnClick">
+                        <Path Width="11" Height="11"
+                              Data="M1,1 L10,10 M10,1 L1,10"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.25"
+                              Stretch="Uniform" />
+                    </Button>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="20,18,20,18" RowDefinitions="*,Auto">
+                <Border Classes="card" Padding="20,18">
+                    <Grid ColumnDefinitions="52,*">
+                        <Border Width="40" Height="40"
+                                CornerRadius="20"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                Background="#269F8CFF"
+                                BorderBrush="{DynamicResource AccentBrush}"
+                                BorderThickness="1">
+                            <Grid Width="5" Height="22"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center">
+                                <Border Width="2.4" Height="13"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Top"
+                                        CornerRadius="1.2"
+                                        Background="{DynamicResource AccentBrush}" />
+                                <Ellipse Width="3.2" Height="3.2"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Bottom"
+                                         Margin="0,0,0,1"
+                                         Fill="{DynamicResource AccentBrush}" />
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="WitherChat"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock x:Name="MessageText"
+                                       AutomationProperties.AutomationId="SingleInstanceMessage"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       LineHeight="19"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10"
+                            Margin="0,14,0,0" HorizontalAlignment="Right">
+                    <Button x:Name="DismissButton"
+                            AutomationProperties.AutomationId="SingleInstanceDismissButton"
+                            MinWidth="92"
+                            Click="CloseButton_OnClick" />
+                    <Button x:Name="ShowChatButton"
+                            AutomationProperties.AutomationId="SingleInstanceShowChatButton"
+                            Classes="primary"
+                            MinWidth="164"
+                            Click="ShowChatButton_OnClick" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

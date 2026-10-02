@@ -37,16 +37,16 @@ public sealed class TrayIconService : IDisposable
         _exitItem.Click += ExitItem_Click;
         _contextMenu = new ContextMenuStrip
         {
-            BackColor = Color.FromArgb(214, 22, 25, 34),
+            BackColor = Color.FromArgb(24, 27, 36),
             ForeColor = Color.FromArgb(238, 241, 247),
             Renderer = new LiquidGlassTrayRenderer(),
             ShowCheckMargin = false,
             ShowImageMargin = false,
             DropShadowEnabled = true,
-            Opacity = 0.98,
-            Padding = new Padding(6),
-            MinimumSize = new Size(230, 0),
-            Font = new Font("Segoe UI Variable", 10F, FontStyle.Regular, GraphicsUnit.Point)
+            Opacity = 1,
+            Padding = new Padding(4),
+            MinimumSize = new Size(224, 0),
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point)
         };
         _openItem.ForeColor = _contextMenu.ForeColor;
         _restartItem.ForeColor = _contextMenu.ForeColor;
@@ -132,8 +132,8 @@ public sealed class TrayIconService : IDisposable
     private static ToolStripMenuItem CreateMenuItem() => new()
     {
         AutoSize = true,
-        Margin = new Padding(2),
-        Padding = new Padding(12, 8, 12, 8)
+        Margin = new Padding(1),
+        Padding = new Padding(10, 5, 10, 5)
     };
 
     private void NotifyIcon_MouseClick(object? sender, MouseEventArgs e)
@@ -154,13 +154,11 @@ public sealed class TrayIconService : IDisposable
 
     private sealed class LiquidGlassTrayRenderer : ToolStripProfessionalRenderer
     {
-        private static readonly Color BackgroundTop = Color.FromArgb(248, 31, 35, 47);
-        private static readonly Color BackgroundBottom = Color.FromArgb(248, 18, 21, 30);
-        private static readonly Color Border = Color.FromArgb(104, 132, 143, 168);
-        private static readonly Color ItemBackground = Color.FromArgb(28, 255, 255, 255);
-        private static readonly Color ItemBorder = Color.FromArgb(38, 202, 211, 232);
-        private static readonly Color HoverTop = Color.FromArgb(112, 126, 112, 255);
-        private static readonly Color HoverBottom = Color.FromArgb(70, 89, 187, 220);
+        private static readonly Color BackgroundTop = Color.FromArgb(30, 34, 45);
+        private static readonly Color BackgroundBottom = Color.FromArgb(18, 21, 29);
+        private static readonly Color Border = Color.FromArgb(72, 86, 105);
+        private static readonly Color HoverTop = Color.FromArgb(61, 67, 85);
+        private static readonly Color HoverBottom = Color.FromArgb(45, 50, 65);
 
         public LiquidGlassTrayRenderer()
             : base(new ProfessionalColorTable { UseSystemColors = false })
@@ -172,7 +170,7 @@ public sealed class TrayIconService : IDisposable
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             var bounds = new Rectangle(0, 0, Math.Max(1, e.ToolStrip.Width - 1), Math.Max(1, e.ToolStrip.Height - 1));
-            using var path = CreateRoundedRectangle(bounds, 14);
+            using var path = CreateRoundedRectangle(bounds, 10);
             using var brush = new LinearGradientBrush(bounds, BackgroundTop, BackgroundBottom, LinearGradientMode.Vertical);
             e.Graphics.FillPath(brush, path);
 
@@ -185,7 +183,7 @@ public sealed class TrayIconService : IDisposable
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             var bounds = new Rectangle(0, 0, Math.Max(1, e.ToolStrip.Width - 1), Math.Max(1, e.ToolStrip.Height - 1));
-            using var path = CreateRoundedRectangle(bounds, 14);
+            using var path = CreateRoundedRectangle(bounds, 10);
             using var pen = new Pen(Border, 1F);
             e.Graphics.DrawPath(pen, path);
         }
@@ -193,45 +191,41 @@ public sealed class TrayIconService : IDisposable
         protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            var bounds = new Rectangle(3, 2, Math.Max(1, e.Item.Width - 6), Math.Max(1, e.Item.Height - 4));
-            using var path = CreateRoundedRectangle(bounds, 10);
-            if (e.Item.Selected || e.Item.Pressed)
+            if (!e.Item.Selected && !e.Item.Pressed)
             {
-                using var hoverBrush = new LinearGradientBrush(
-                    bounds,
-                    HoverTop,
-                    HoverBottom,
-                    LinearGradientMode.Horizontal);
-                e.Graphics.FillPath(hoverBrush, path);
-            }
-            else
-            {
-                using var normalBrush = new SolidBrush(ItemBackground);
-                e.Graphics.FillPath(normalBrush, path);
+                return;
             }
 
-            using var pen = new Pen(
-                e.Item.Selected || e.Item.Pressed
-                    ? Color.FromArgb(100, 194, 205, 255)
-                    : ItemBorder,
-                1F);
+            var bounds = new Rectangle(2, 1, Math.Max(1, e.Item.Width - 4), Math.Max(1, e.Item.Height - 2));
+            using var path = CreateRoundedRectangle(bounds, 7);
+            using var hoverBrush = new LinearGradientBrush(
+                bounds,
+                HoverTop,
+                HoverBottom,
+                LinearGradientMode.Vertical);
+            e.Graphics.FillPath(hoverBrush, path);
+            using var pen = new Pen(Color.FromArgb(82, 116, 128, 156), 1F);
             e.Graphics.DrawPath(pen, path);
         }
 
         protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
         {
             var y = e.Item.Height / 2;
-            using var pen = new Pen(Color.FromArgb(64, 180, 190, 211));
-            e.Graphics.DrawLine(pen, 14, y, Math.Max(14, e.Item.Width - 14), y);
+            using var pen = new Pen(Color.FromArgb(58, 118, 129, 151));
+            e.Graphics.DrawLine(pen, 10, y, Math.Max(10, e.Item.Width - 10), y);
         }
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
-            e.TextColor = e.Item.Enabled
-                ? Color.FromArgb(244, 247, 255)
+            var color = e.Item.Enabled
+                ? Color.FromArgb(238, 241, 247)
                 : Color.FromArgb(130, 141, 161);
-            e.TextFormat |= TextFormatFlags.VerticalCenter | TextFormatFlags.Left;
-            base.OnRenderItemText(e);
+            var flags = TextFormatFlags.VerticalCenter |
+                        TextFormatFlags.Left |
+                        TextFormatFlags.SingleLine |
+                        TextFormatFlags.EndEllipsis |
+                        TextFormatFlags.NoPrefix;
+            TextRenderer.DrawText(e.Graphics, e.Text, e.TextFont, e.TextRectangle, color, flags);
         }
 
         private static GraphicsPath CreateRoundedRectangle(Rectangle bounds, int radius)

@@ -40,10 +40,11 @@ public partial class MainWindow : Window
 
     private const double NormalMinimumWidth = 860;
     private const double NormalMinimumHeight = 560;
-    private const double CompactMinimumWidth = 280;
-    private const double CompactMinimumHeight = 180;
+    private const double CompactMinimumWidth = 300;
+    private const double CompactMinimumHeight = 400;
     private const double CompactDefaultWidth = 360;
-    private const double CompactDefaultHeight = 320;
+    private const double CompactDefaultHeight = 400;
+    private const int CompactBoundsAnimationDurationMs = 380;
     private const string CompactIconGeometry =
         "M2,2 L7,7 M7,3 V7 H3 M18,2 L13,7 M13,3 V7 H17 M2,18 L7,13 M3,13 H7 V17 M18,18 L13,13 M17,13 H13 V17";
     private const string RestoreIconGeometry =
@@ -104,6 +105,7 @@ public partial class MainWindow : Window
     private bool _suppressPanelToggleAnimations;
     private bool _normalHeaderExpanded = true;
     private bool _normalComposerExpanded = true;
+    private bool _compactModeTransitionInProgress;
     private Rect _normalWindowBounds;
     private WindowState _normalWindowState = WindowState.Normal;
 #if DEBUG
@@ -136,7 +138,14 @@ public partial class MainWindow : Window
         MessagesList.LayoutUpdated += MessagesList_LayoutUpdated;
         _scrollDiagnosticsTimer.Start();
 #endif
-        SizeChanged += (_, _) => UpdateOverlayPanelSize();
+        SizeChanged += (_, _) =>
+        {
+            UpdateOverlayPanelSize();
+            if (_viewModel.IsChannelSwitcherOpen)
+            {
+                PositionChannelSwitcherFlyout();
+            }
+        };
     }
 
     public bool IsCompactChatMode
@@ -214,25 +223,8 @@ public partial class MainWindow : Window
 
     private void CloseTitleBarButton_Click(object sender, RoutedEventArgs e) => Close();
 
-    private async void MinimizeTitleBarButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_windowTransitionInProgress || WindowState == WindowState.Minimized)
-        {
-            return;
-        }
-
-        _windowTransitionInProgress = true;
-        try
-        {
-            await AnimationService.AnimateWindowCloseAsync(this, offsetY: 8).ConfigureAwait(true);
-            WindowState = WindowState.Minimized;
-        }
-        finally
-        {
-            AnimationService.ResetWindowVisuals(this);
-            _windowTransitionInProgress = false;
-        }
-    }
+    private void MinimizeTitleBarButton_Click(object sender, RoutedEventArgs e) =>
+        SystemCommands.MinimizeWindow(this);
 
     private async void MaximizeTitleBarButton_Click(object sender, RoutedEventArgs e) =>
         await ToggleWindowMaximizedAsync().ConfigureAwait(true);
@@ -273,82 +265,157 @@ public partial class MainWindow : Window
             return IntPtr.Zero;
         }
 
-        var monitor = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MonitorDefaultToNearest);
-        if (monitor == IntPtr.Zero)
-        {
-            return IntPtr.Zero;
-        }
-
-        var monitorInfo = new NativeMethods.MonitorInfo
-        {
-            Size = Marshal.SizeOf<NativeMethods.MonitorInfo>()
-        };
-        if (!NativeMethods.GetMonitorInfo(monitor, ref monitorInfo))
-        {
-            return IntPtr.Zero;
-        }
-
-        var bounds = NativeMethods.IsTaskbarAutoHidden()
-            ? monitorInfo.Monitor
-            : monitorInfo.WorkArea;
         var minMaxInfo = Marshal.PtrToStructure<NativeMethods.MinMaxInfo>(lParam);
-        minMaxInfo.MaxPosition.X = bounds.Left - monitorInfo.Monitor.Left;
-        minMaxInfo.MaxPosition.Y = bounds.Top - monitorInfo.Monitor.Top;
-        minMaxInfo.MaxSize.X = bounds.Right - bounds.Left;
-        minMaxInfo.MaxSize.Y = bounds.Bottom - bounds.Top;
-        minMaxInfo.MaxTrackSize = minMaxInfo.MaxSize;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        minMaxInfo.MinTrackSize.X = Math.Max(1, (int)Math.Ceiling(MinWidth * dpi.DpiScaleX));
+        minMaxInfo.MinTrackSize.Y = Math.Max(1, (int)Math.Ceiling(MinHeight * dpi.DpiScaleY));
+
+        var monitor = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MonitorDefaultToNearest);
+        if (monitor != IntPtr.Zero)
+        {
+            var monitorInfo = new NativeMethods.MonitorInfo
+            {
+                Size = Marshal.SizeOf<NativeMethods.MonitorInfo>()
+            };
+            if (NativeMethods.GetMonitorInfo(monitor, ref monitorInfo))
+            {
+                var bounds = NativeMethods.IsTaskbarAutoHidden()
+                    ? monitorInfo.Monitor
+                    : monitorInfo.WorkArea;
+                minMaxInfo.MaxPosition.X = bounds.Left - monitorInfo.Monitor.Left;
+                minMaxInfo.MaxPosition.Y = bounds.Top - monitorInfo.Monitor.Top;
+                minMaxInfo.MaxSize.X = bounds.Right - bounds.Left;
+                minMaxInfo.MaxSize.Y = bounds.Bottom - bounds.Top;
+                minMaxInfo.MaxTrackSize = minMaxInfo.MaxSize;
+            }
+        }
+
         Marshal.StructureToPtr(minMaxInfo, lParam, fDeleteOld: false);
         handled = true;
         return IntPtr.Zero;
     }
 
-    private void CompactModeButton_Click(object sender, RoutedEventArgs e)
+    private async void CompactModeButton_Click(object sender, RoutedEventArgs e)
     {
-        if (IsCompactChatMode)
+        if (_compactModeTransitionInProgress)
         {
-            ExitCompactMode();
+            return;
         }
-        else
+
+        _compactModeTransitionInProgress = true;
+        CompactModeButton.IsEnabled = false;
+        try
         {
-            EnterCompactMode();
+            if (IsCompactChatMode)
+            {
+                await ExitCompactModeAsync().ConfigureAwait(true);
+            }
+            else
+            {
+                await CloseAuxiliaryUiForCompactModeAsync().ConfigureAwait(true);
+                await EnterCompactModeAsync().ConfigureAwait(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            new FileLogger().Warn($"Compact mode transition failed: {ex.GetType().Name}");
+            ChatLayoutRoot.BeginAnimation(OpacityProperty, null);
+            ChatLayoutRoot.Opacity = 1;
+            ChatEmptyStateCard.BeginAnimation(OpacityProperty, null);
+            ChatEmptyStateCard.Opacity = 1;
+            NoActiveChannelCard.BeginAnimation(OpacityProperty, null);
+            NoActiveChannelCard.Opacity = 1;
+        }
+        finally
+        {
+            CompactModeButton.IsEnabled = true;
+            _compactModeTransitionInProgress = false;
         }
     }
 
-    private void EnterCompactMode()
+    private async Task CloseAuxiliaryUiForCompactModeAsync()
     {
+        _viewModel.IsChannelSwitcherOpen = false;
+        CompleteChannelSwitcherTransition(false, _channelSwitcherTransitionVersion);
+
+        if (_dialogOpen)
+        {
+            await CloseDialogOverlayAsync(false).ConfigureAwait(true);
+        }
+
+        switch (OverlayContent.Content)
+        {
+            case SettingsPanel settingsPanel:
+                settingsPanel.CancelFromHost();
+                break;
+            case ConnectTwitchPanel connectPanel:
+                connectPanel.CancelFromHost();
+                break;
+            case ChatLogsPanel chatLogsPanel:
+                await chatLogsPanel.CancelFromHostAsync().ConfigureAwait(true);
+                break;
+        }
+
+        if (_activeOverlay != ActiveOverlayPanel.None)
+        {
+            await CloseOverlaySafelyAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task EnterCompactModeAsync()
+    {
+        var visibleBounds = GetCurrentVisibleWindowBounds();
         _normalWindowState = WindowState;
         _normalWindowBounds = WindowState == WindowState.Normal
-            ? new Rect(Left, Top, ActualWidth, ActualHeight)
+            ? visibleBounds
             : RestoreBounds;
         _normalHeaderExpanded = HeaderPanelToggle.IsChecked == true;
         _normalComposerExpanded = ComposerPanelToggle.IsChecked == true;
+
+        await Task.WhenAll(
+            AnimateCompactLayoutOpacityAsync(0.55, 110),
+            AnimateCompactPlaceholderOpacityAsync(0, 90)).ConfigureAwait(true);
         IsCompactChatMode = true;
+        MinWidth = CompactMinimumWidth;
+        MinHeight = CompactMinimumHeight;
 
         if (WindowState != WindowState.Normal)
         {
             WindowState = WindowState.Normal;
+            ApplyWindowBounds(visibleBounds);
         }
 
         SetPanelsForCompactMode();
         ChatLayoutRoot.Margin = new Thickness(4, 46, 4, 4);
         ChatPanel.Padding = new Thickness(4);
-        MinWidth = CompactMinimumWidth;
-        MinHeight = CompactMinimumHeight;
-        Width = CompactDefaultWidth;
-        Height = CompactDefaultHeight;
-        KeepCompactWindowOnScreen();
+        var targetBounds = CreateCenteredBounds(
+            visibleBounds,
+            CompactDefaultWidth,
+            CompactDefaultHeight);
+        ChatLayoutRoot.Opacity = 0.72;
+        await Task.WhenAll(
+            AnimateWindowBoundsAsync(targetBounds, CompactBoundsAnimationDurationMs),
+            AnimateCompactLayoutOpacityAsync(1, 300)).ConfigureAwait(true);
+        await AnimateCompactPlaceholderOpacityAsync(1, 160).ConfigureAwait(true);
         UpdateCompactModeButton();
     }
 
-    private void ExitCompactMode()
+    private async Task ExitCompactModeAsync()
     {
-        IsCompactChatMode = false;
+        var currentBounds = GetCurrentVisibleWindowBounds();
+        var targetBounds = !_normalWindowBounds.IsEmpty &&
+                           _normalWindowBounds.Width >= NormalMinimumWidth &&
+                           _normalWindowBounds.Height >= NormalMinimumHeight
+            ? ClampBoundsToWorkArea(_normalWindowBounds)
+            : CreateCenteredBounds(currentBounds, NormalMinimumWidth, NormalMinimumHeight);
+
+        await Task.WhenAll(
+            AnimateCompactLayoutOpacityAsync(0.55, 110),
+            AnimateCompactPlaceholderOpacityAsync(0, 90)).ConfigureAwait(true);
         HeaderPanelToggleHost.Visibility = Visibility.Visible;
         ComposerPanelToggleHost.Visibility = Visibility.Visible;
         ChatLayoutRoot.Margin = new Thickness(16, 54, 16, 16);
         ChatPanel.Padding = new Thickness(8);
-        MinWidth = NormalMinimumWidth;
-        MinHeight = NormalMinimumHeight;
 
         _suppressPanelToggleAnimations = true;
         try
@@ -363,20 +430,23 @@ public partial class MainWindow : Window
             _suppressPanelToggleAnimations = false;
         }
 
-        if (!_normalWindowBounds.IsEmpty &&
-            _normalWindowBounds.Width >= NormalMinimumWidth &&
-            _normalWindowBounds.Height >= NormalMinimumHeight)
-        {
-            WindowState = WindowState.Normal;
-            Left = _normalWindowBounds.Left;
-            Top = _normalWindowBounds.Top;
-            Width = _normalWindowBounds.Width;
-            Height = _normalWindowBounds.Height;
-        }
+        ChatLayoutRoot.Opacity = 0.72;
+        await Task.WhenAll(
+            AnimateWindowBoundsAsync(targetBounds, CompactBoundsAnimationDurationMs),
+            AnimateCompactLayoutOpacityAsync(0.82, 280)).ConfigureAwait(true);
+
+        IsCompactChatMode = false;
+        MinWidth = NormalMinimumWidth;
+        MinHeight = NormalMinimumHeight;
+        await Task.WhenAll(
+            AnimateCompactLayoutOpacityAsync(1, 160),
+            AnimateCompactPlaceholderOpacityAsync(1, 160)).ConfigureAwait(true);
 
         if (_normalWindowState == WindowState.Maximized)
         {
-            WindowState = WindowState.Maximized;
+            await AnimationService.AnimateWindowStateChangeAsync(
+                this,
+                () => WindowState = WindowState.Maximized).ConfigureAwait(true);
         }
 
         UpdateCompactModeButton();
@@ -419,16 +489,164 @@ public partial class MainWindow : Window
         rotation.Angle = expanded ? expandedAngle : collapsedAngle;
     }
 
-    private void KeepCompactWindowOnScreen()
+    private Rect GetCurrentVisibleWindowBounds()
+    {
+        var topLeft = PointToScreen(new Point());
+        if (PresentationSource.FromVisual(this)?.CompositionTarget is { } compositionTarget)
+        {
+            topLeft = compositionTarget.TransformFromDevice.Transform(topLeft);
+        }
+
+        return new Rect(
+            topLeft.X,
+            topLeft.Y,
+            Math.Max(ActualWidth, MinWidth),
+            Math.Max(ActualHeight, MinHeight));
+    }
+
+    private static Rect CreateCenteredBounds(Rect source, double width, double height)
+    {
+        var centered = new Rect(
+            source.Left + ((source.Width - width) / 2),
+            source.Top + ((source.Height - height) / 2),
+            width,
+            height);
+        return ClampBoundsToWorkArea(centered);
+    }
+
+    private static Rect ClampBoundsToWorkArea(Rect bounds)
     {
         var workArea = SystemParameters.WorkArea;
-        var sourceBounds = _normalWindowBounds.IsEmpty
-            ? new Rect(Left, Top, Width, Height)
-            : _normalWindowBounds;
-        var centeredLeft = sourceBounds.Left + ((sourceBounds.Width - Width) / 2);
-        var centeredTop = sourceBounds.Top + ((sourceBounds.Height - Height) / 2);
-        Left = Math.Clamp(centeredLeft, workArea.Left, Math.Max(workArea.Left, workArea.Right - Width));
-        Top = Math.Clamp(centeredTop, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - Height));
+        var width = Math.Min(bounds.Width, workArea.Width);
+        var height = Math.Min(bounds.Height, workArea.Height);
+        var left = Math.Clamp(bounds.Left, workArea.Left, Math.Max(workArea.Left, workArea.Right - width));
+        var top = Math.Clamp(bounds.Top, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - height));
+        return new Rect(left, top, width, height);
+    }
+
+    private async Task AnimateWindowBoundsAsync(Rect targetBounds, int durationMilliseconds)
+    {
+        targetBounds = ClampBoundsToWorkArea(targetBounds);
+        if (AnimationService.ReduceMotion)
+        {
+            ApplyWindowBounds(targetBounds);
+            return;
+        }
+
+        var sourceBounds = GetCurrentVisibleWindowBounds();
+        var completion = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopwatch = Stopwatch.StartNew();
+        var timer = new DispatcherTimer(DispatcherPriority.Render, Dispatcher)
+        {
+            Interval = TimeSpan.FromMilliseconds(16)
+        };
+        timer.Tick += (_, _) =>
+        {
+            var progress = Math.Clamp(
+                stopwatch.Elapsed.TotalMilliseconds / Math.Max(1, durationMilliseconds),
+                0,
+                1);
+            var eased = 0.5 - (Math.Cos(Math.PI * progress) / 2);
+            ApplyWindowBounds(new Rect(
+                Lerp(sourceBounds.Left, targetBounds.Left, eased),
+                Lerp(sourceBounds.Top, targetBounds.Top, eased),
+                Lerp(sourceBounds.Width, targetBounds.Width, eased),
+                Lerp(sourceBounds.Height, targetBounds.Height, eased)),
+                useNativePositioning: true);
+
+            if (progress < 1)
+            {
+                return;
+            }
+
+            timer.Stop();
+            completion.TrySetResult(null);
+        };
+
+        timer.Start();
+        try
+        {
+            await completion.Task.ConfigureAwait(true);
+        }
+        finally
+        {
+            timer.Stop();
+            ApplyWindowBounds(targetBounds);
+        }
+    }
+
+    private async Task AnimateCompactLayoutOpacityAsync(double opacity, int durationMilliseconds)
+    {
+        await AnimateElementOpacityAsync(ChatLayoutRoot, opacity, durationMilliseconds).ConfigureAwait(true);
+    }
+
+    private Task AnimateCompactPlaceholderOpacityAsync(double opacity, int durationMilliseconds) =>
+        Task.WhenAll(
+            AnimateElementOpacityAsync(ChatEmptyStateCard, opacity, durationMilliseconds),
+            AnimateElementOpacityAsync(NoActiveChannelCard, opacity, durationMilliseconds));
+
+    private static async Task AnimateElementOpacityAsync(
+        UIElement element,
+        double opacity,
+        int durationMilliseconds)
+    {
+        if (AnimationService.ReduceMotion)
+        {
+            element.Opacity = opacity;
+            return;
+        }
+
+        var completion = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var animation = new DoubleAnimation(
+            element.Opacity,
+            opacity,
+            TimeSpan.FromMilliseconds(durationMilliseconds))
+        {
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+            FillBehavior = FillBehavior.Stop
+        };
+        animation.Completed += (_, _) => completion.TrySetResult(null);
+        element.BeginAnimation(OpacityProperty, animation, HandoffBehavior.SnapshotAndReplace);
+        element.Opacity = opacity;
+        await completion.Task.ConfigureAwait(true);
+        element.BeginAnimation(OpacityProperty, null);
+    }
+
+    private static double Lerp(double from, double to, double progress) =>
+        from + ((to - from) * progress);
+
+    private void ApplyWindowBounds(Rect bounds, bool useNativePositioning = false)
+    {
+        if (useNativePositioning && TryApplyNativeWindowBounds(bounds))
+        {
+            return;
+        }
+
+        Left = bounds.Left;
+        Top = bounds.Top;
+        Width = bounds.Width;
+        Height = bounds.Height;
+    }
+
+    private bool TryApplyNativeWindowBounds(Rect bounds)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero ||
+            PresentationSource.FromVisual(this)?.CompositionTarget is not { } compositionTarget)
+        {
+            return false;
+        }
+
+        var topLeft = compositionTarget.TransformToDevice.Transform(bounds.TopLeft);
+        var bottomRight = compositionTarget.TransformToDevice.Transform(bounds.BottomRight);
+        return NativeMethods.SetWindowPos(
+            hwnd,
+            IntPtr.Zero,
+            (int)Math.Round(topLeft.X),
+            (int)Math.Round(topLeft.Y),
+            Math.Max(1, (int)Math.Round(bottomRight.X - topLeft.X)),
+            Math.Max(1, (int)Math.Round(bottomRight.Y - topLeft.Y)),
+            NativeMethods.SwpNoActivate | NativeMethods.SwpNoZOrder);
     }
 
     private void UpdateCompactModeButton()
@@ -1057,6 +1275,7 @@ public partial class MainWindow : Window
 
         if (open)
         {
+            PositionChannelSwitcherFlyout();
             if (ChannelSwitcherFlyout.Visibility != Visibility.Visible)
             {
                 ClearChannelSwitcherAnimations();
@@ -1099,6 +1318,23 @@ public partial class MainWindow : Window
             new CubicEase { EasingMode = EasingMode.EaseIn },
             version,
             open: false);
+    }
+
+    private void PositionChannelSwitcherFlyout()
+    {
+        if (!IsLoaded || ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            return;
+        }
+
+        var layoutLeft = ChatLayoutRoot.TranslatePoint(new Point(), this).X;
+        var headerBottom = HeaderPanel.TranslatePoint(new Point(0, HeaderPanel.ActualHeight), this).Y;
+        var left = Math.Max(12, Math.Ceiling(layoutLeft));
+        var top = Math.Max(54, Math.Ceiling(headerBottom + 8));
+        var availableWidth = Math.Max(0, ActualWidth - left - 16);
+        ChannelSwitcherFlyout.Width = Math.Min(330, availableWidth);
+        ChannelSwitcherFlyout.MaxHeight = Math.Max(160, ActualHeight - top - 16);
+        ChannelSwitcherFlyout.Margin = new Thickness(left, top, 0, 0);
     }
 
     private void StartChannelSwitcherAnimations(
@@ -2387,11 +2623,24 @@ public partial class MainWindow : Window
     {
         public const int WmGetMinMaxInfo = 0x0024;
         public const uint MonitorDefaultToNearest = 0x00000002;
+        public const uint SwpNoZOrder = 0x0004;
+        public const uint SwpNoActivate = 0x0010;
         private const uint AbmGetState = 0x00000004;
         private const uint AbsAutoHide = 0x00000001;
 
         [DllImport("user32.dll")]
         public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetWindowPos(
+            IntPtr hwnd,
+            IntPtr insertAfter,
+            int x,
+            int y,
+            int width,
+            int height,
+            uint flags);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         [return: MarshalAs(UnmanagedType.Bool)]
