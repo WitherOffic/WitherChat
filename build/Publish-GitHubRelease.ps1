@@ -67,7 +67,10 @@ $headers = @{
     'X-GitHub-Api-Version' = '2022-11-28'
 }
 function Get-GitHubResource([string]$Path) {
-    try { return Invoke-RestMethod "https://api.github.com/repos/$Repository/$Path" -Headers $headers }
+    try {
+        $response = Invoke-RestMethod "https://api.github.com/repos/$Repository/$Path" -Headers $headers
+        return $response
+    }
     catch {
         if ($null -ne $_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404) { return $null }
         throw
@@ -77,9 +80,11 @@ function Get-GitHubRelease([string]$Tag) {
     $publishedRelease = Get-GitHubResource "releases/tags/$Tag"
     if ($null -ne $publishedRelease) { return $publishedRelease }
     # Authenticated release listing also includes unpublished drafts.
-    $matches = @(Get-GitHubResource 'releases?per_page=100' | Where-Object tag_name -eq $Tag)
-    if ($matches.Count -gt 1) { throw 'Multiple releases use the requested tag.' }
-    if ($matches.Count -eq 1) { return $matches[0] }
+    $matchingReleases = @(foreach ($releaseItem in (Get-GitHubResource 'releases?per_page=100')) {
+        if ($null -ne $releaseItem -and $releaseItem.tag_name -eq $Tag) { $releaseItem }
+    })
+    if ($matchingReleases.Count -gt 1) { throw 'Multiple releases use the requested tag.' }
+    if ($matchingReleases.Count -eq 1) { return $matchingReleases[0] }
     return $null
 }
 $tag = "v$Version"
