@@ -90,7 +90,8 @@ jobs:
             -PackageDirectory "$env:RUNNER_TEMP/witherchat-package" `
             -Version $env:WITHERCHAT_VERSION `
             -SourceCommit $env:RELEASE_SOURCE_COMMIT `
-            -Repository $env:GITHUB_REPOSITORY
+            -Repository $env:GITHUB_REPOSITORY `
+            -RecoverDraftFromCommit 'df6412d379f902fa75b950430f247dd95b3e722d'
 
 # Public publication is currently unsigned; no SignPath signing token/request.
 # Enable signing only after Foundation acceptance, MFA setup, artifact-policy

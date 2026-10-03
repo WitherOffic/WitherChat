@@ -5,11 +5,13 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$SourceCommit,
     [ValidateSet('WitherOffic/WitherChat')][string]$Repository = 'WitherOffic/WitherChat',
     [string]$OutputDirectory,
-    [switch]$PrepareOnly
+    [switch]$PrepareOnly,
+    [ValidatePattern('^$|^[0-9a-f]{40}$')][string]$RecoverDraftFromCommit
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $package = (Resolve-Path -LiteralPath $PackageDirectory).Path
 $exe = Join-Path $package 'WitherChat.exe'
 $required = @('WitherChat.exe', 'LICENSE', 'THIRD-PARTY-NOTICES.md',
@@ -71,8 +73,36 @@ function Get-GitHubResource([string]$Path) {
         throw
     }
 }
+function Get-GitHubRelease([string]$Tag) {
+    $publishedRelease = Get-GitHubResource "releases/tags/$Tag"
+    if ($null -ne $publishedRelease) { return $publishedRelease }
+    # Authenticated release listing also includes unpublished drafts.
+    $matches = @(Get-GitHubResource 'releases?per_page=100' | Where-Object tag_name -eq $Tag)
+    if ($matches.Count -gt 1) { throw 'Multiple releases use the requested tag.' }
+    if ($matches.Count -eq 1) { return $matches[0] }
+    return $null
+}
 $tag = "v$Version"
-$existing = Get-GitHubResource "releases/tags/$tag"
+$existing = Get-GitHubRelease $tag
+if ($null -ne $existing -and $existing.draft -and $RecoverDraftFromCommit) {
+    # One-time recovery of our failed, never-published 0.5.1A draft.
+    # No published release or pre-existing user draft may be deleted.
+    $expectedNames = @($assets | ForEach-Object { [IO.Path]::GetFileName($_) } | Sort-Object)
+    $actualNames = @($existing.assets.name | Sort-Object)
+    if ($Version -ne '0.5.1A' -or
+        $RecoverDraftFromCommit -ne 'df6412d379f902fa75b950430f247dd95b3e722d' -or
+        $existing.target_commitish -ne $RecoverDraftFromCommit -or
+        $existing.author.login -ne 'github-actions[bot]' -or
+        $existing.body -notlike "*$RecoverDraftFromCommit*" -or
+        $existing.body -notlike '*actions/runs/37106501637*' -or
+        ($expectedNames -join '|') -ne ($actualNames -join '|') -or
+        [string]$existing.id -notmatch '^[1-9][0-9]*$') {
+        throw 'Draft does not match our known failed publication; nothing was deleted.'
+    }
+    Invoke-RestMethod -Method Delete -Uri "https://api.github.com/repos/$Repository/releases/$($existing.id)" -Headers $headers | Out-Null
+    Write-Output "Removed only our failed unpublished draft: $($existing.id). Original workflow artifacts remain available."
+    $existing = $null
+}
 if ($null -ne $existing) {
     if ($existing.draft) { throw 'An unfinished draft exists; inspect it before retrying.' }
     foreach ($path in $assets) {
@@ -105,7 +135,7 @@ $ghArgs = @('release', 'create', $tag) + $assets + @('--repo', $Repository,
     '--title', "WitherChat $Version - Windows x64", '--notes-file', $generatedNotes)
 & gh @ghArgs
 if ($LASTEXITCODE -ne 0) { throw 'GitHub draft creation or asset upload failed.' }
-$draft = Get-GitHubResource "releases/tags/$tag"
+$draft = Get-GitHubRelease $tag
 if ($null -eq $draft -or -not $draft.draft -or -not $draft.prerelease -or
     $draft.target_commitish -ne $SourceCommit -or $draft.tag_name -ne $tag) {
     throw 'Unexpected draft metadata; release has not been published.'
