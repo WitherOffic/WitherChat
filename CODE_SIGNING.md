@@ -2,7 +2,8 @@
 
 ## Current status
 
-WitherChat is preparing an application to SignPath Foundation.
+WitherChat's application was submitted to SignPath Foundation on 2026-10-03
+and is awaiting review. Receipt was acknowledged; this is not approval.
 It has **not** been enrolled or approved, and current EXEs are unsigned.
 An MIT license or passing tests does not replace an Authenticode signature.
 Do not disable Windows security, import a self-signed root certificate, or
