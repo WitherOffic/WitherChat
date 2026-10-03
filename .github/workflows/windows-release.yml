@@ -1,12 +1,16 @@
-name: Windows release (unsigned preparation)
+name: Windows release
 
 on:
   push:
-    branches: [main, open-source-0.5.1a-preparation]
+    branches: [main, release-0.5.1a-publication]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   AVALONIA_TELEMETRY_OPTOUT: "1"
@@ -34,7 +38,7 @@ jobs:
       - name: Restore desktop
         run: dotnet restore src/WitherChat.Desktop/WitherChat.Desktop.csproj -r win-x64 -p:RuntimeFrameworkVersion=${{ env.WITHERCHAT_RUNTIME_VERSION }} -p:NuGetAudit=true -p:NuGetAuditMode=all -p:TreatWarningsAsErrors=true
 
-      - name: Package unsigned development build
+      - name: Package unsigned release
         shell: pwsh
         run: ./build/Publish-WitherChat.ps1 -Platform windows -WindowsArchitecture x64 -Version $env:WITHERCHAT_VERSION -NoRestore
 
@@ -43,9 +47,10 @@ jobs:
         run: |
           $exe = "artifacts/WitherChat/windows/current/$env:WITHERCHAT_VERSION/win-x64-single-file/WitherChat.exe"
           $signature = Get-AuthenticodeSignature -LiteralPath $exe
-          if ($signature.Status -ne 'NotSigned') { throw "Unexpected signature state for unsigned preparation." }
+          if ($signature.Status -ne 'NotSigned') { throw "Unexpected signature state for unsigned release." }
           if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $exe) 'LICENSE'))) { throw 'MIT license is missing.' }
-          Write-Output "Development artifact is unsigned; Smart App Control compatibility is not certified."
+          if ((Get-Item -LiteralPath $exe).VersionInfo.ProductVersion -ne $env:WITHERCHAT_VERSION) { throw 'EXE version mismatch.' }
+          Write-Output "This release is unsigned; Smart App Control compatibility is not certified."
 
       - name: Upload standalone package with notices
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -55,6 +60,38 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-# No SignPath token, signing request, release publication or claim of approval.
-# Enable signing in a reviewed workflow only after Foundation acceptance,
-# account/MFA setup, artifact policy review and manual approval configuration.
+  publish:
+    name: Publish verified unsigned release
+    needs: windows
+    if: github.repository == 'WitherOffic/WitherChat' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release notes at the same source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download this run's standalone package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: WitherChat-${{ env.WITHERCHAT_VERSION }}-win-x64-UNSIGNED
+          path: ${{ runner.temp }}/witherchat-package
+
+      - name: Prepare files, verify uploads, then publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          ./build/Publish-GitHubRelease.ps1 `
+            -PackageDirectory "$env:RUNNER_TEMP/witherchat-package" `
+            -Version $env:WITHERCHAT_VERSION `
+            -SourceCommit $env:RELEASE_SOURCE_COMMIT `
+            -Repository $env:GITHUB_REPOSITORY
+
+# Public publication is currently unsigned; no SignPath signing token/request.
+# Enable signing only after Foundation acceptance, MFA setup, artifact-policy
+# review and explicit human approval for each signed release.
