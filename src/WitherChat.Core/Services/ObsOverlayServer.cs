@@ -16,6 +16,7 @@ public sealed class ObsOverlayServer : IAsyncDisposable
     private readonly Queue<OverlayHistoryEntry> _history = new();
     private readonly object _historyGate = new();
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+    private bool _disposed;
     private HttpListener? _listener;
     private CancellationTokenSource? _cancellation;
     private Task? _serverTask;
@@ -31,6 +32,7 @@ public sealed class ObsOverlayServer : IAsyncDisposable
         await _lifecycleLock.WaitAsync().ConfigureAwait(false);
         try
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             var restart = IsRunning && options.Port != _options.Port;
             _options = options;
             lock (_historyGate)
@@ -158,12 +160,18 @@ public sealed class ObsOverlayServer : IAsyncDisposable
         await _lifecycleLock.WaitAsync().ConfigureAwait(false);
         try
         {
+            if (_disposed)
+            {
+                return;
+            }
+            _disposed = true;
             await StopCoreAsync().ConfigureAwait(false);
         }
         finally
         {
             _lifecycleLock.Release();
-            _lifecycleLock.Dispose();
+            // No AvailableWaitHandle is created. Keep the managed gate usable for
+            // concurrent/repeated disposal and reject any later configuration.
         }
     }
 

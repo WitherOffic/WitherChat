@@ -40,6 +40,7 @@ internal static class LocalDataProtection
             FreeBlob(optionalEntropy);
             if (output.PbData != IntPtr.Zero)
             {
+                ZeroNativeMemory(output.PbData, output.CbData);
                 _ = LocalFree(output.PbData);
             }
         }
@@ -60,8 +61,16 @@ internal static class LocalDataProtection
     {
         if (blob.PbData != IntPtr.Zero)
         {
+            ZeroNativeMemory(blob.PbData, blob.CbData);
             Marshal.FreeHGlobal(blob.PbData);
         }
+    }
+
+    internal static void ZeroNativeMemory(IntPtr pointer, int length)
+    {
+        if (pointer == IntPtr.Zero) return;
+        // Avoid allocating another buffer while running exception-path cleanup.
+        for (var index = 0; index < length; index++) Marshal.WriteByte(pointer, index, 0);
     }
 
     [StructLayout(LayoutKind.Sequential)]

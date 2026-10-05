@@ -35,6 +35,7 @@ public sealed class WitherChatSettings
     public string ClientId { get; set; } = string.Empty;
     public string RedirectUri { get; set; } = "http://localhost:17654/";
     public bool DonationAlertsAutoOpenWindow { get; set; } = true;
+    public string ObsPluginDirectory { get; set; } = string.Empty;
     public bool EnableObsOverlay { get; set; }
     public int OverlayPort { get; set; } = 17655;
     public int OverlayMaxMessages { get; set; } = 12;
@@ -104,6 +105,7 @@ public sealed class WitherChatSettings
         {
             RedirectUri += "/";
         }
+        ObsPluginDirectory = (ObsPluginDirectory ?? string.Empty).Trim();
         OverlayPort = Math.Clamp(OverlayPort, 1024, 65535);
         OverlayMaxMessages = Math.Clamp(OverlayMaxMessages, 1, 100);
         OverlayFontSize = Math.Clamp(OverlayFontSize, 10, 72);

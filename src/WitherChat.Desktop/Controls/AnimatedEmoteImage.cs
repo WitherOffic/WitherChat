@@ -22,6 +22,8 @@ public sealed class AnimatedEmoteImage : Image
     private int _frameIndex;
     private ChatImageResource? _subscribedResource;
     private bool _isAttached;
+    private readonly List<Visual> _visibilityAncestors = [];
+
 
     public ChatImageResource? Resource
     {
@@ -62,7 +64,7 @@ public sealed class AnimatedEmoteImage : Image
         }
 
         base.OnPropertyChanged(change);
-        if (change.Property == ResourceProperty)
+        if (change.Property == ResourceProperty || change.Property == IsVisibleProperty)
         {
             RefreshMedia();
         }
@@ -72,6 +74,11 @@ public sealed class AnimatedEmoteImage : Image
     {
         base.OnAttachedToVisualTree(eventArgs);
         _isAttached = true;
+        foreach (var ancestor in this.GetVisualAncestors())
+        {
+            _visibilityAncestors.Add(ancestor);
+            ancestor.PropertyChanged += OnAncestorVisibilityChanged;
+        }
         UpdateResourceSubscription();
         RefreshMedia();
     }
@@ -79,10 +86,18 @@ public sealed class AnimatedEmoteImage : Image
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs eventArgs)
     {
         _isAttached = false;
+        foreach (var ancestor in _visibilityAncestors)
+            ancestor.PropertyChanged -= OnAncestorVisibilityChanged;
+        _visibilityAncestors.Clear();
         UpdateResourceSubscription();
         ActiveImages.Remove(this);
         ResetClock();
         base.OnDetachedFromVisualTree(eventArgs);
+    }
+
+    private void OnAncestorVisibilityChanged(object? sender, AvaloniaPropertyChangedEventArgs change)
+    {
+        if (change.Property == IsVisibleProperty) RefreshMedia();
     }
 
     private void UpdateResourceSubscription()
@@ -119,7 +134,8 @@ public sealed class AnimatedEmoteImage : Image
         Source = media?.FirstFrame;
         _frameIndex = 0;
         ResetClock();
-        if (TopLevel.GetTopLevel(this) is not null && media?.IsAnimated == true)
+        if (_isAttached && IsEffectivelyVisible &&
+            TopLevel.GetTopLevel(this) is not null && media?.IsAnimated == true)
         {
             ActiveImages.Add(this);
             ScheduleFrame();
@@ -150,7 +166,8 @@ public sealed class AnimatedEmoteImage : Image
 
     private void ScheduleFrame()
     {
-        if (_reduceMotion || _fastScrolling || Resource?.Media?.IsAnimated != true)
+        if (_reduceMotion || _fastScrolling || !IsEffectivelyVisible ||
+            Resource?.Media?.IsAnimated != true)
         {
             return;
         }
@@ -161,11 +178,22 @@ public sealed class AnimatedEmoteImage : Image
             return;
         }
 
+        topLevel.Closed += OnAnimationTopLevelClosed;
         topLevel.RequestAnimationFrame(time => AdvanceTopLevel(topLevel, time));
+    }
+
+    private static void OnAnimationTopLevelClosed(object? sender, EventArgs eventArgs)
+    {
+        if (sender is TopLevel topLevel)
+        {
+            topLevel.Closed -= OnAnimationTopLevelClosed;
+            ScheduledTopLevels.Remove(topLevel);
+        }
     }
 
     private static void AdvanceTopLevel(TopLevel topLevel, TimeSpan renderingTime)
     {
+        topLevel.Closed -= OnAnimationTopLevelClosed;
         ScheduledTopLevels.Remove(topLevel);
         if (_reduceMotion || _fastScrolling)
         {

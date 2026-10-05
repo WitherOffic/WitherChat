@@ -135,7 +135,9 @@ public static class SecureTokenStoreFactory
 
         public bool TrySave(byte[] data)
         {
-            _data = data.ToArray();
+            var replacement = data.ToArray();
+            Clear();
+            _data = replacement;
             return true;
         }
 
@@ -248,24 +250,8 @@ public static class SecureTokenStoreFactory
                     startInfo.ArgumentList.Add(argument);
                 }
 
-                using var process = Process.Start(startInfo);
-                if (process is null)
-                {
-                    return new ProcessResult(-1, string.Empty);
-                }
-                if (standardInput is not null)
-                {
-                    process.StandardInput.Write(standardInput);
-                    process.StandardInput.Close();
-                }
-                var output = process.StandardOutput.ReadToEnd();
-                _ = process.StandardError.ReadToEnd();
-                if (!process.WaitForExit(5000))
-                {
-                    process.Kill();
-                    return new ProcessResult(-1, string.Empty);
-                }
-                return new ProcessResult(process.ExitCode, output);
+                var result = BoundedCommandRunner.Run(startInfo, standardInput, TimeSpan.FromSeconds(5));
+                return new ProcessResult(result.ExitCode, result.Output);
             }
             catch (Exception exception) when (
                 exception is Win32Exception or InvalidOperationException or IOException)

@@ -25,6 +25,8 @@ public sealed class YouTubeLiveChatClient : IAsyncDisposable
     private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
+    private readonly SemaphoreSlim _moderationLock = new(1, 1);
+    private readonly object _connectionGate = new();
     private readonly HashSet<string> _seenMessageIds = new(StringComparer.Ordinal);
     private readonly Queue<string> _seenMessageOrder = new();
     private CancellationTokenSource? _runCancellation;
@@ -60,12 +62,15 @@ public sealed class YouTubeLiveChatClient : IAsyncDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             await StopCoreAsync().ConfigureAwait(false);
-            _session = session;
-            CurrentLiveChatId = string.Empty;
+            cancellationToken.ThrowIfCancellationRequested();
             _seenMessageIds.Clear();
             _seenMessageOrder.Clear();
-            _runCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _runTask = RunAsync(_runCancellation.Token);
+            lock (_connectionGate)
+            {
+                _session = session;
+                _runCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                _runTask = RunAsync(_runCancellation.Token);
+            }
         }
         finally
         {
@@ -189,23 +194,21 @@ public sealed class YouTubeLiveChatClient : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(message);
         if (!message.IsYouTubeMessage)
-        {
             throw new ArgumentException("The message does not belong to YouTube.", nameof(message));
-        }
-        var messageId = string.IsNullOrWhiteSpace(message.PlatformMessageId)
-            ? message.Id
-            : message.PlatformMessageId;
+        var messageId = string.IsNullOrWhiteSpace(message.PlatformMessageId) ? message.Id : message.PlatformMessageId;
         if (string.IsNullOrWhiteSpace(messageId))
-        {
             throw new ArgumentException("The YouTube message ID is empty.", nameof(message));
-        }
 
-        var session = await EnsureModerationSessionAsync(cancellationToken).ConfigureAwait(false);
-        using var request = new HttpRequestMessage(
-            HttpMethod.Delete,
-            MessagesEndpoint + "?id=" + Uri.EscapeDataString(messageId));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
-        using var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
+        await RunModerationAsync(async token =>
+        {
+            var session = await EnsureModerationSessionAsync(token).ConfigureAwait(false);
+            ValidateModerationChannel(message, session);
+            using var request = new HttpRequestMessage(
+                HttpMethod.Delete, MessagesEndpoint + "?id=" + Uri.EscapeDataString(messageId));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+            using var response = await SendAsync(request, token).ConfigureAwait(false);
+            return true;
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<YouTubeChatBan> BanUserAsync(
@@ -216,68 +219,94 @@ public sealed class YouTubeLiveChatClient : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(message);
         if (!message.IsYouTubeMessage || string.IsNullOrWhiteSpace(message.UserId))
-        {
             throw new ArgumentException("The YouTube user channel ID is empty.", nameof(message));
-        }
         if (durationSeconds is <= 0)
-        {
             throw new ArgumentOutOfRangeException(nameof(durationSeconds));
-        }
-        var liveChatId = CurrentLiveChatId;
-        if (!IsConnected || string.IsNullOrWhiteSpace(liveChatId))
-        {
-            throw new InvalidOperationException("The active YouTube live chat is not connected.");
-        }
 
-        var session = await EnsureModerationSessionAsync(cancellationToken).ConfigureAwait(false);
-        var snippet = new Dictionary<string, object?>
+        return await RunModerationAsync(async token =>
         {
-            ["liveChatId"] = liveChatId,
-            ["type"] = durationSeconds is null ? "permanent" : "temporary",
-            ["bannedUserDetails"] = new Dictionary<string, string>
+            var session = await EnsureModerationSessionAsync(token).ConfigureAwait(false);
+            ValidateModerationChannel(message, session);
+            var liveChatId = CurrentLiveChatId;
+            if (!IsConnected || string.IsNullOrWhiteSpace(liveChatId))
+                throw new InvalidOperationException("The active YouTube live chat is not connected.");
+            var snippet = new Dictionary<string, object?>
             {
-                ["channelId"] = message.UserId
-            }
-        };
-        if (durationSeconds is { } seconds)
-        {
-            snippet["banDurationSeconds"] = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, BansEndpoint + "?part=snippet")
-        {
-            Content = JsonContent.Create(new Dictionary<string, object?> { ["snippet"] = snippet })
-        };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
-        using var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var resource = await JsonSerializer.DeserializeAsync<LiveChatBanResource>(
-                           stream, JsonOptions, cancellationToken).ConfigureAwait(false)
-                       ?? throw new InvalidDataException("YouTube returned an empty ban response.");
-        if (string.IsNullOrWhiteSpace(resource.Id))
-        {
-            throw new InvalidDataException("YouTube returned an empty ban ID.");
-        }
-        var createdAt = DateTimeOffset.UtcNow;
-        return new YouTubeChatBan(
-            resource.Id,
-            liveChatId,
-            message.UserId,
-            message.UserLabel,
-            createdAt,
-            durationSeconds is { } value ? createdAt.AddSeconds(value) : null);
+                ["liveChatId"] = liveChatId,
+                ["type"] = durationSeconds is null ? "permanent" : "temporary",
+                ["bannedUserDetails"] = new Dictionary<string, string> { ["channelId"] = message.UserId }
+            };
+            if (durationSeconds is { } seconds)
+                snippet["banDurationSeconds"] = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            using var request = new HttpRequestMessage(HttpMethod.Post, BansEndpoint + "?part=snippet")
+            {
+                Content = JsonContent.Create(new Dictionary<string, object?> { ["snippet"] = snippet })
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+            using var response = await SendAsync(request, token).ConfigureAwait(false);
+            using var stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+            var resource = await JsonSerializer.DeserializeAsync<LiveChatBanResource>(
+                               stream, JsonOptions, token).ConfigureAwait(false)
+                           ?? throw new InvalidDataException("YouTube returned an empty ban response.");
+            if (string.IsNullOrWhiteSpace(resource.Id))
+                throw new InvalidDataException("YouTube returned an empty ban ID.");
+            var createdAt = DateTimeOffset.UtcNow;
+            return new YouTubeChatBan(
+                resource.Id, liveChatId, message.UserId, message.UserLabel, createdAt,
+                durationSeconds is { } value ? createdAt.AddSeconds(value) : null);
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task RemoveBanAsync(string banId, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(banId);
-        var session = await EnsureModerationSessionAsync(cancellationToken).ConfigureAwait(false);
-        using var request = new HttpRequestMessage(
-            HttpMethod.Delete,
-            BansEndpoint + "?id=" + Uri.EscapeDataString(banId));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
-        using var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
+        await RunModerationAsync(async token =>
+        {
+            var session = await EnsureModerationSessionAsync(token).ConfigureAwait(false);
+            using var request = new HttpRequestMessage(
+                HttpMethod.Delete, BansEndpoint + "?id=" + Uri.EscapeDataString(banId));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+            using var response = await SendAsync(request, token).ConfigureAwait(false);
+            return true;
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<T> RunModerationAsync<T>(
+        Func<CancellationToken, Task<T>> action,
+        CancellationToken cancellationToken)
+    {
+        CancellationTokenSource cancellation;
+        lock (_connectionGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_runCancellation is null || _session is null)
+                throw new InvalidOperationException("The YouTube connection is not running.");
+            cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _runCancellation.Token);
+        }
+        using (cancellation)
+        {
+            await _moderationLock.WaitAsync(cancellation.Token).ConfigureAwait(false);
+            try
+            {
+                cancellation.Token.ThrowIfCancellationRequested();
+                var result = await action(cancellation.Token).ConfigureAwait(false);
+                cancellation.Token.ThrowIfCancellationRequested();
+                return result;
+            }
+            finally
+            {
+                _moderationLock.Release();
+            }
+        }
+    }
+
+    private static void ValidateModerationChannel(ChatMessage message, YouTubeAuthSession session)
+    {
+        if (!string.Equals(message.Channel, GetChannelKey(session), StringComparison.Ordinal) ||
+            message.BroadcasterId.Length > 0 &&
+            !string.Equals(message.BroadcasterId, session.ChannelId, StringComparison.Ordinal))
+            throw new InvalidOperationException("The message belongs to a different YouTube channel.");
     }
 
     private async Task PollMessagesAsync(string liveChatId, CancellationToken cancellationToken)
@@ -394,10 +423,8 @@ public sealed class YouTubeLiveChatClient : IAsyncDisposable
             {
                 return session;
             }
-            session = await _authService.RefreshAsync(session, cancellationToken).ConfigureAwait(false);
-            _session = session;
-            SessionUpdated?.Invoke(this, new YouTubeSessionEventArgs(session));
-            return session;
+            var refreshed = await _authService.RefreshAsync(session, cancellationToken).ConfigureAwait(false);
+            return PublishRefreshedSession(session, refreshed, cancellationToken);
         }
         finally
         {
@@ -411,14 +438,28 @@ public sealed class YouTubeLiveChatClient : IAsyncDisposable
         try
         {
             var session = _session ?? throw new InvalidOperationException("YouTube is not signed in.");
-            session = await _authService.RefreshAsync(session, cancellationToken).ConfigureAwait(false);
-            _session = session;
-            SessionUpdated?.Invoke(this, new YouTubeSessionEventArgs(session));
-            return session;
+            var refreshed = await _authService.RefreshAsync(session, cancellationToken).ConfigureAwait(false);
+            return PublishRefreshedSession(session, refreshed, cancellationToken);
         }
         finally
         {
             _sessionLock.Release();
+        }
+    }
+
+    private YouTubeAuthSession PublishRefreshedSession(
+        YouTubeAuthSession previous,
+        YouTubeAuthSession refreshed,
+        CancellationToken cancellationToken)
+    {
+        lock (_connectionGate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!ReferenceEquals(_session, previous))
+                throw new OperationCanceledException("The YouTube connection changed.", cancellationToken);
+            _session = refreshed;
+            SessionUpdated?.Invoke(this, new YouTubeSessionEventArgs(refreshed, previous));
+            return refreshed;
         }
     }
 
@@ -715,39 +756,68 @@ public sealed class YouTubeLiveChatClient : IAsyncDisposable
 
     private async Task StopCoreAsync()
     {
-        var cancellation = _runCancellation;
-        var task = _runTask;
-        _runCancellation = null;
-        _runTask = null;
-        if (cancellation is null)
+        CancellationTokenSource? cancellation;
+        Task? task;
+        Task cancellationTask;
+        lock (_connectionGate)
         {
-            return;
+            cancellation = _runCancellation;
+            task = _runTask;
+            cancellationTask = cancellation?.CancelAsync() ?? Task.CompletedTask;
+            _runCancellation = null;
+            _runTask = null;
+            _session = null;
         }
-        await cancellation.CancelAsync().ConfigureAwait(false);
-        if (task is not null)
+        try
         {
-            try
+            await cancellationTask.ConfigureAwait(false);
+            if (cancellation is not null)
             {
-                await task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
+                if (task is not null)
+                {
+                    try
+                    {
+                        await task.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+                }
             }
         }
-        cancellation.Dispose();
+        finally
+        {
+            // Drain active commands before replacing the connection or closing HTTP.
+            await _moderationLock.WaitAsync().ConfigureAwait(false);
+            _moderationLock.Release();
+            await _sessionLock.WaitAsync().ConfigureAwait(false);
+            _sessionLock.Release();
+            cancellation?.Dispose();
+            _session = null;
+            IsConnected = false;
+            BroadcastTitle = string.Empty;
+            CurrentLiveChatId = string.Empty;
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
+        await _lifecycleLock.WaitAsync().ConfigureAwait(false);
+        try
         {
-            return;
+            lock (_connectionGate)
+            {
+                if (_disposed) return;
+                _disposed = true;
+            }
+            await StopCoreAsync().ConfigureAwait(false);
+            _httpClient.Dispose();
+            // Managed gates remain available to concurrent callers completing cleanup.
         }
-        _disposed = true;
-        await StopAsync().ConfigureAwait(false);
-        _httpClient.Dispose();
-        _lifecycleLock.Dispose();
-        _sessionLock.Dispose();
+        finally
+        {
+            _lifecycleLock.Release();
+        }
     }
 
     private static string GetChannelKey(YouTubeAuthSession session) => "youtube_" + session.ChannelId;
@@ -883,9 +953,12 @@ public sealed class YouTubeLiveChatClient : IAsyncDisposable
     private sealed record LiveChatBanResource([property: JsonPropertyName("id")] string Id);
 }
 
-public sealed class YouTubeSessionEventArgs(YouTubeAuthSession session) : EventArgs
+public sealed class YouTubeSessionEventArgs(
+    YouTubeAuthSession session,
+    YouTubeAuthSession? previousSession = null) : EventArgs
 {
     public YouTubeAuthSession Session { get; } = session;
+    public YouTubeAuthSession? PreviousSession { get; } = previousSession;
 }
 
 public sealed class YouTubeMessageDeletedEventArgs(string messageId) : EventArgs

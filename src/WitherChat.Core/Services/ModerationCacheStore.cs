@@ -27,6 +27,7 @@ public sealed class ModerationCacheStore : IAsyncDisposable
     private CacheDocument _document;
     private CancellationTokenSource? _debounceCancellation;
     private Task _pendingSave = Task.CompletedTask;
+    private Task? _disposeTask;
     private bool _disposed;
 
     public ModerationCacheStore(AppDataPaths paths)
@@ -37,7 +38,7 @@ public sealed class ModerationCacheStore : IAsyncDisposable
 
     public ModerationCacheSnapshot Restore(string broadcasterId)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
         if (string.IsNullOrWhiteSpace(broadcasterId))
         {
             return new ModerationCacheSnapshot([], []);
@@ -45,6 +46,7 @@ public sealed class ModerationCacheStore : IAsyncDisposable
 
         lock (_gate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (!_document.Channels.TryGetValue(broadcasterId, out var cached))
             {
                 return new ModerationCacheSnapshot([], []);
@@ -70,7 +72,7 @@ public sealed class ModerationCacheStore : IAsyncDisposable
         IEnumerable<BannedUser> bannedUsers,
         IEnumerable<UnbanRequest> unbanRequests)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
         if (string.IsNullOrWhiteSpace(broadcasterId))
         {
             return;
@@ -80,6 +82,7 @@ public sealed class ModerationCacheStore : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(unbanRequests);
         lock (_gate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             _document.Channels[broadcasterId] = new CacheChannel
             {
                 LastUpdatedAt = DateTimeOffset.UtcNow,
@@ -220,18 +223,39 @@ public sealed class ModerationCacheStore : IAsyncDisposable
             {
                 LastUpdatedAt = value.LastUpdatedAt > now ? now : value.LastUpdatedAt,
                 BannedUsers = (value.BannedUsers ?? [])
-                    .Where(item => !string.IsNullOrWhiteSpace(item.UserId) &&
+                    .Where(item => item is not null && !string.IsNullOrWhiteSpace(item.UserId) &&
                                    (item.ExpiresAt is null || item.ExpiresAt > now))
                     .Take(MaximumBannedUsers)
+                    .Select(Normalize)
                     .ToList(),
                 UnbanRequests = (value.UnbanRequests ?? [])
-                    .Where(item => !string.IsNullOrWhiteSpace(item.RequestId) &&
+                    .Where(item => item is not null && !string.IsNullOrWhiteSpace(item.RequestId) &&
                                    item.Status == UnbanRequestStatus.Pending)
                     .Take(MaximumUnbanRequests)
+                    .Select(Normalize)
                     .ToList()
             };
         }
         return normalized;
+    }
+
+    private static CachedBannedUser Normalize(CachedBannedUser item)
+    {
+        item.UserLogin ??= string.Empty;
+        item.DisplayName ??= string.Empty;
+        item.Reason ??= string.Empty;
+        return item;
+    }
+
+    private static CachedUnbanRequest Normalize(CachedUnbanRequest item)
+    {
+        item.BroadcasterId ??= string.Empty;
+        item.UserId ??= string.Empty;
+        item.UserLogin ??= string.Empty;
+        item.DisplayName ??= string.Empty;
+        item.RequestText ??= string.Empty;
+        item.ResolutionText ??= string.Empty;
+        return item;
     }
 
     private static void TrimChannels(CacheDocument document)
@@ -269,29 +293,41 @@ public sealed class ModerationCacheStore : IAsyncDisposable
             JsonSerializer.SerializeToUtf8Bytes(document, JsonOptions),
             JsonOptions) ?? new CacheDocument();
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (_disposed)
-        {
-            return;
-        }
-        _disposed = true;
-
-        Task pending;
         lock (_gate)
         {
+            if (_disposeTask is not null)
+            {
+                return new ValueTask(_disposeTask);
+            }
+            _disposed = true;
             _debounceCancellation?.Cancel();
-            pending = _pendingSave;
+            _disposeTask = DisposeCoreAsync(_pendingSave);
+            return new ValueTask(_disposeTask);
         }
+    }
+
+    private async Task DisposeCoreAsync(Task pending)
+    {
         try
         {
-            await pending.ConfigureAwait(false);
+            try
+            {
+                await pending.ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is OperationCanceledException or IOException or
+                                               UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+            {
+                // A failed debounced write must not prevent a final retry after
+                // temporary file locks or access failures have been resolved.
+            }
+            await SaveAsync(CancellationToken.None).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        finally
         {
+            _writeGate.Dispose();
         }
-        await SaveAsync(CancellationToken.None).ConfigureAwait(false);
-        _writeGate.Dispose();
     }
 
     public sealed class CacheDocument

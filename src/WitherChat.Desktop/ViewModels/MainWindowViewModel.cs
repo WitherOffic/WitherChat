@@ -98,6 +98,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private readonly DispatcherTimer _pinnedMessageTimer;
     private readonly DispatcherTimer _filterRefreshTimer;
     private readonly DispatcherTimer _donationDisplayTimer;
+    private CancellationTokenSource? _sendCancellation;
     private CancellationTokenSource? _authorizationCancellation;
     private CancellationTokenSource? _youTubeAuthorizationCancellation;
     private CancellationTokenSource? _donationAlertsAuthorizationCancellation;
@@ -118,8 +119,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private long _moderationContextGeneration;
     private long _authenticationGeneration;
     private YouTubeAuthSession? _youTubeAuthSession;
+    private long _youTubeAuthenticationGeneration;
     private string _youTubeModerationLiveChatId = string.Empty;
     private DonationAlertsAuthSession? _donationAlertsAuthSession;
+    private long _donationAlertsAuthenticationGeneration;
     private WitherChatSettings? _settingsOpenSnapshot;
     private bool _suppressSettingsPersistence;
     private string _deferredPinnedMessageAuthor = string.Empty;
@@ -128,6 +131,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private string _normalizedUserFilter = string.Empty;
     private string _moderationBroadcasterId = string.Empty;
     private bool _disposed;
+    private bool _actualThemeIsLight;
     private bool _isMessageBatchProcessingSuspended;
     private bool _sessionValidationInProgress;
     private int _savedChannelStatusRefreshInProgress;
@@ -236,6 +240,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         _clientId = settings.ClientId;
         _redirectUri = settings.RedirectUri;
         _donationAlertsAutoOpenWindow = settings.DonationAlertsAutoOpenWindow;
+        _obsPluginDirectory = settings.ObsPluginDirectory;
         _enableObsOverlay = settings.EnableObsOverlay;
         _overlayPort = settings.OverlayPort;
         _overlayMaxMessages = settings.OverlayMaxMessages;
@@ -536,7 +541,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             var value = IsAccountConnected
                 ? string.IsNullOrWhiteSpace(AccountDisplayName) ? AccountLogin : AccountDisplayName
                 : Channel;
-            return string.IsNullOrWhiteSpace(value) ? "W" : value.Trim()[0].ToString().ToUpperInvariant();
+            return string.IsNullOrWhiteSpace(value) ? "W" : StringInfo.GetNextTextElement(value.Trim()).ToUpperInvariant();
         }
     }
     public string ApiConnectionLabel => IsAccountConnected ? Texts.ApiConnected : Texts.ApiDisconnected;
@@ -554,17 +559,24 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     public string HeaderToggleGlyph => IsHeaderExpanded ? "^" : "v";
     public string HeaderToggleTip => IsHeaderExpanded ? Texts.HideHeader : Texts.ShowHeader;
     public string CompactModeTip => IsCompactMode ? Texts.RestoreFullMode : Texts.CompactMode;
-    public bool ShowHeaderPanel => IsHeaderExpanded && !IsCompactMode;
-    public bool ShowHeaderToggle => !IsCompactMode;
-    public bool ShowComposerPanel => IsComposerExpanded && !IsCompactMode;
-    public bool ShowComposerToggle => HasActiveChannel && !IsCompactMode;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ChatLayoutMargin))]
+    [NotifyPropertyChangedFor(nameof(ShowComposerPanel))]
+    [NotifyPropertyChangedFor(nameof(ShowHeaderPanel))]
+    [NotifyPropertyChangedFor(nameof(ShowHeaderToggle))]
+    [NotifyPropertyChangedFor(nameof(ShowComposerToggle))]
+    private bool _isObsDockMode;
+    public bool ShowHeaderPanel => IsHeaderExpanded && !IsCompactMode && !IsObsDockMode;
+    public bool ShowHeaderToggle => !IsCompactMode && !IsObsDockMode;
+    public bool ShowComposerPanel => IsComposerExpanded && (!IsCompactMode || IsObsDockMode);
+    public bool ShowComposerToggle => HasActiveChannel && !IsCompactMode && !IsObsDockMode;
     public bool ShowFullChatMetadata => !IsCompactMode;
     public bool ShowFullChatTimestamps => ShowTimestamps && !IsCompactMode;
     public bool ShowFullChatBadges => ShowBadges && !IsCompactMode;
     public bool ShowCompactChatBadges => ShowBadges && IsCompactMode;
-    public Thickness ChatLayoutMargin => IsCompactMode
-        ? new Thickness(4, 46, 4, 4)
-        : new Thickness(16, 54, 16, 16);
+    public Thickness ChatLayoutMargin => IsObsDockMode
+        ? new Thickness(4, 40, 4, 4)
+        : IsCompactMode ? new Thickness(4, 46, 4, 4) : new Thickness(16, 54, 16, 16);
     public VerticalAlignment ChatMetadataVerticalAlignment => IsCompactMode
         ? VerticalAlignment.Top
         : VerticalAlignment.Center;
@@ -849,8 +861,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             return (int)Math.Clamp(parsed, minimum, maximum);
         }
 
-        var unsigned = text.TrimStart('+', '-');
-        if (unsigned.Length > 0 && unsigned.All(char.IsDigit))
+        var unsigned = text[0] is '+' or '-' ? text[1..] : text;
+        if (unsigned.Length > 0 && unsigned.All(char.IsAsciiDigit))
         {
             return text.StartsWith("-", StringComparison.Ordinal) ? minimum : maximum;
         }
@@ -897,7 +909,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         : SelectedLogFile.DateText + " · " + SelectedLogFile.SizeText;
     public bool IsConnected => ConnectionState == ChatConnectionState.Connected;
     public bool IsBusy => ConnectionState is ChatConnectionState.Connecting or ChatConnectionState.Reconnecting;
-    public bool CanConnect => !_disposed && !IsBusy && !string.IsNullOrWhiteSpace(Channel);
+    public bool CanConnect => !_disposed && !IsBusy && IsValidChannelLogin(NormalizeChannel(Channel));
     public bool CanDisconnect => ConnectionState != ChatConnectionState.Disconnected;
     public bool CanHeaderDisconnect => IsAccountConnected || CanDisconnect;
     public string HeaderDisconnectTip => IsAccountConnected ? Texts.SignOut : Texts.Disconnect;
@@ -1989,7 +2001,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 : null;
         Channel = normalizedChannel;
         IsChannelEditorOpen = false;
-        if (normalizedChannel.Length == 0)
+        if (!IsValidChannelLogin(normalizedChannel))
         {
             return;
         }
@@ -2255,6 +2267,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     [RelayCommand]
     private async Task DisconnectYouTubeAsync()
     {
+        Interlocked.Increment(ref _youTubeAuthenticationGeneration);
         _youTubeAuthorizationCancellation?.Cancel();
         if (_youTubeLiveChatClient is not null)
         {
@@ -2353,6 +2366,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     [RelayCommand]
     private async Task DisconnectDonationAlertsAsync()
     {
+        Interlocked.Increment(ref _donationAlertsAuthenticationGeneration);
         _donationAlertsAuthorizationCancellation?.Cancel();
         if (_donationAlertsClient is not null)
         {
@@ -2642,22 +2656,34 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     [RelayCommand(CanExecute = nameof(CanSend))]
     private async Task SendMessageAsync()
     {
-        var text = ComposerText.Trim();
+        var draft = ComposerText;
+        var text = draft.Trim();
         var session = _authSession;
-        if (session is null || text.Length == 0)
+        var channel = NormalizeChannel(Channel);
+        var authenticationGeneration = Volatile.Read(ref _authenticationGeneration);
+        var channelGeneration = Volatile.Read(ref _moderationContextGeneration);
+        bool IsCurrentSendContext() => !_disposed &&
+            authenticationGeneration == Volatile.Read(ref _authenticationGeneration) &&
+            channelGeneration == Volatile.Read(ref _moderationContextGeneration) &&
+            string.Equals(channel, NormalizeChannel(Channel), StringComparison.Ordinal);
+        if (!CanSend || session is null || text.Length == 0 || !IsValidChannelLogin(channel))
         {
             return;
         }
 
+        using var sendCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCancellation.Token);
+        Interlocked.Exchange(ref _sendCancellation, sendCancellation);
         IsSending = true;
         try
         {
-            session = await EnsureValidSessionAsync(session, _lifetimeCancellation.Token);
+            session = await EnsureValidSessionAsync(session, sendCancellation.Token);
+            if (!IsCurrentSendContext()) return;
             var result = await _chatApiClient.SendMessageAsync(
                 session,
-                Channel,
+                channel,
                 text,
-                cancellationToken: _lifetimeCancellation.Token);
+                cancellationToken: sendCancellation.Token);
+            if (!IsCurrentSendContext()) return;
             if (!result.IsSent)
             {
                 var reason = string.IsNullOrWhiteSpace(result.DropReasonMessage)
@@ -2667,18 +2693,21 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 return;
             }
 
-            ComposerText = string.Empty;
+            if (string.Equals(ComposerText, draft, StringComparison.Ordinal))
+                ComposerText = string.Empty;
             StatusDetail = Texts.MessageSent;
         }
-        catch (OperationCanceledException cancellationException) when (_lifetimeCancellation.IsCancellationRequested || cancellationException is AuthenticationContextChangedException)
+        catch (OperationCanceledException cancellationException) when (sendCancellation.IsCancellationRequested || cancellationException is AuthenticationContextChangedException)
         {
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception)
         {
+            if (!IsCurrentSendContext()) return;
             StatusDetail = Texts.MessageNotSent(AppDiagnostics.GetUserMessage(exception));
         }
         finally
         {
+            Interlocked.CompareExchange(ref _sendCancellation, null, sendCancellation);
             IsSending = false;
         }
     }
@@ -2773,7 +2802,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             parsedTopic = TutorialTopic.DonationsSetup;
         }
-        _contextTutorialOriginalSettingsSection = parsedTopic == TutorialTopic.Settings
+        _contextTutorialOriginalSettingsSection = parsedTopic is TutorialTopic.Settings or TutorialTopic.ObsPlugin
             ? SelectedSettingsSection
             : null;
         _contextTutorialOriginalModerationSection = parsedTopic == TutorialTopic.Moderation
@@ -2859,9 +2888,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
         IsChannelEditorOpen = nextStep == 2;
         IsLogViewerOpen = nextStep == 6;
-        if (nextStep is 7 or 8)
+        if (nextStep is 7 or 8 or 10 or 11)
         {
-            SelectedSettingsSection = nextStep == 7
+            SelectedSettingsSection = nextStep is 7 or 10 or 11
                 ? SettingsSection.Overlay
                 : SettingsSection.Program;
             IsSettingsOpen = true;
@@ -2922,6 +2951,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             return;
         }
 
+        if (topic == TutorialTopic.ObsPlugin)
+        {
+            SelectedSettingsSection = SettingsSection.Overlay;
+            IsSettingsOpen = true;
+            return;
+        }
         if (topic != TutorialTopic.Settings)
         {
             return;
@@ -2935,6 +2970,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             5 => SettingsSection.Account,
             6 => SettingsSection.Donate,
             7 => SettingsSection.Advanced,
+            8 or 9 => SettingsSection.Overlay,
             _ => SelectedSettingsSection
         };
     }
@@ -3183,23 +3219,29 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private async Task UnbanYouTubeUserAsync(YouTubeChatBanViewModel? item)
     {
         if (item is null || _youTubeLiveChatClient is null || !CanModerateYouTube)
-        {
             return;
-        }
+        var generation = Volatile.Read(ref _youTubeAuthenticationGeneration);
+        var channel = GetYouTubeChannelKey();
+        var liveChatId = _youTubeLiveChatClient.CurrentLiveChatId;
+        if (!string.Equals(item.Value.LiveChatId, liveChatId, StringComparison.Ordinal))
+            return;
         try
         {
             await _youTubeLiveChatClient.RemoveBanAsync(
                 item.Value.Id, _lifetimeCancellation.Token).ConfigureAwait(true);
+            if (!IsYouTubeModerationContextCurrent(generation, channel, liveChatId)) return;
             _ = YouTubeBans.Remove(item);
             OnPropertyChanged(nameof(HasYouTubeBans));
             ModerationPanelStatus = Texts.ModerationActionComplete;
         }
-        catch (OperationCanceledException cancellationException) when (_lifetimeCancellation.IsCancellationRequested || cancellationException is AuthenticationContextChangedException)
+        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested ||
+                                                !IsYouTubeModerationContextCurrent(generation, channel, liveChatId))
         {
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception)
         {
-            ModerationPanelStatus = Texts.ModerationPanelFailed(AppDiagnostics.GetUserMessage(exception));
+            if (IsYouTubeModerationContextCurrent(generation, channel, liveChatId))
+                ModerationPanelStatus = Texts.ModerationPanelFailed(AppDiagnostics.GetUserMessage(exception));
         }
     }
 
@@ -3685,6 +3727,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         catch (Exception exception) when (
             exception is HttpRequestException or InvalidDataException or InvalidOperationException or JsonException)
         {
+            if (_disposed || !ReferenceEquals(_channelSearchCancellation, cancellation) ||
+                !(forConnectPanel ? IsConnectPanelOpen : IsAddingChannel))
+                return;
             ChannelSearchStatus = Texts.ChannelSearchFailed;
         }
         finally
@@ -4267,6 +4312,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private async Task ConfirmClearChatAsync()
     {
         var session = _authSession;
+        var channel = NormalizeChannel(Channel);
+        var generation = Volatile.Read(ref _moderationContextGeneration);
         if (session is null || !CanModerate || IsProtectionBusy || string.IsNullOrWhiteSpace(Channel))
         {
             return;
@@ -4274,19 +4321,28 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         IsProtectionBusy = true;
         try
         {
-            await _chatApiClient.ClearChatAsync(session, Channel, _lifetimeCancellation.Token)
+            session = await EnsureValidSessionAsync(session, _lifetimeCancellation.Token);
+            if (!IsModerationContextCurrent(generation, channel, session) || !CanModerate) return;
+            var clearedAt = DateTimeOffset.UtcNow;
+            await _chatApiClient.ClearChatAsync(session, channel, _lifetimeCancellation.Token)
                 .ConfigureAwait(true);
-            ClearMessageHistory();
+            if (!IsModerationContextCurrent(generation, channel, session)) return;
+            // Preserve other chats and messages received after this request was admitted.
+            // EventSub can advance the cutoff to the authoritative server clear time.
+            ApplyEventSubChatClear(new EventSubChatCleared(string.Empty, channel, clearedAt));
             ProtectionStatus = Texts.ProtectionChatCleared;
             IsClearChatConfirmationOpen = false;
         }
-        catch (OperationCanceledException cancellationException) when (_lifetimeCancellation.IsCancellationRequested || cancellationException is AuthenticationContextChangedException)
+        catch (OperationCanceledException cancellationException) when (_lifetimeCancellation.IsCancellationRequested ||
+                                                                     cancellationException is AuthenticationContextChangedException ||
+                                                                     !IsModerationContextCurrent(generation, channel, session))
         {
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidDataException or
                                           JsonException or InvalidOperationException or ArgumentException)
         {
-            ProtectionStatus = Texts.ModerationPanelFailed(AppDiagnostics.GetUserMessage(exception));
+            if (IsModerationContextCurrent(generation, channel, session))
+                ProtectionStatus = Texts.ModerationPanelFailed(AppDiagnostics.GetUserMessage(exception));
         }
         finally
         {
@@ -4423,7 +4479,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     {
         if (item is not null)
         {
-            OpenRecentMessages(item.Message.UserId, item.Message.UserLogin, item.UserLabel);
+            OpenRecentMessages(item.Message.UserId, item.Message.UserLogin, item.UserLabel, item.Message.Platform);
         }
     }
 
@@ -4454,13 +4510,16 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         }
     }
 
-    private void OpenRecentMessages(string userId, string login, string label)
+    private void OpenRecentMessages(
+        string userId, string login, string label, string platform = ChatPlatforms.Twitch)
     {
         var recent = Messages
             .Where(message =>
-                (!string.IsNullOrWhiteSpace(userId) &&
-                 string.Equals(message.Message.UserId, userId, StringComparison.Ordinal)) ||
-                string.Equals(message.Message.UserLogin, login, StringComparison.OrdinalIgnoreCase))
+                string.Equals(message.Message.Platform, platform, StringComparison.OrdinalIgnoreCase) &&
+                (!string.IsNullOrWhiteSpace(userId) && !string.IsNullOrWhiteSpace(message.Message.UserId)
+                    ? string.Equals(message.Message.UserId, userId, StringComparison.Ordinal)
+                    : !string.IsNullOrWhiteSpace(login) &&
+                      string.Equals(message.Message.UserLogin, login, StringComparison.OrdinalIgnoreCase)))
             .TakeLast(50)
             .Select(message => new RecentUserMessageViewModel(message))
             .ToArray();
@@ -5084,6 +5143,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private void InvalidateModerationContext()
     {
         Interlocked.Increment(ref _moderationContextGeneration);
+        var pendingSend = Interlocked.Exchange(ref _sendCancellation, null);
+        if (pendingSend is not null)
+        {
+            try { pendingSend.Cancel(); }
+            catch (ObjectDisposedException) { }
+        }
         CanModerate = false;
         IsModerationPanelBusy = false;
         IsModerationDialogOpen = false;
@@ -5306,14 +5371,37 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         ConfirmModerationCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnThemeChanged(string value)
+    internal bool UseLightMessageTheme =>
+        string.Equals(Theme, "Light", StringComparison.Ordinal) ||
+        string.Equals(Theme, "System", StringComparison.Ordinal) && _actualThemeIsLight;
+
+    internal void UpdateActualTheme(bool light)
     {
-        OnPropertyChanged(nameof(SelectedThemeOption));
+        if (_disposed || _actualThemeIsLight == light)
+        {
+            return;
+        }
+
+        _actualThemeIsLight = light;
+        if (string.Equals(Theme, "System", StringComparison.Ordinal))
+        {
+            RefreshThemePresentation();
+        }
+    }
+
+    private void RefreshThemePresentation()
+    {
         RefreshMessagePresentation();
         if (SelectedLogFile is { } selectedLogFile && _allChatLogEntries.Count > 0)
         {
             ApplyChatLogEntryPresentation(_allChatLogEntries, selectedLogFile.Channel);
         }
+    }
+
+    partial void OnThemeChanged(string value)
+    {
+        OnPropertyChanged(nameof(SelectedThemeOption));
+        RefreshThemePresentation();
         ThemeChanged?.Invoke(this, new ValueEventArgs<string>(value));
         QueueSettingsSave();
     }
@@ -5767,7 +5855,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 EnableBttvEmotes,
                 EnableSevenTvEmotes,
                 Texts,
-                useLightTwitchTheme: string.Equals(Theme, "Light", StringComparison.Ordinal));
+                useLightTwitchTheme: UseLightMessageTheme);
         }
     }
 
@@ -5945,7 +6033,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 EnableBttvEmotes,
                 EnableSevenTvEmotes,
                 catalog,
-                useLightTwitchTheme: string.Equals(Theme, "Light", StringComparison.Ordinal));
+                useLightTwitchTheme: UseLightMessageTheme);
         }
     }
 
@@ -6187,9 +6275,27 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         }
     }
 
-    private void OnAutoModMessageHeld(object? sender, AutoModHeldEventArgs eventArgs) =>
+    private void PostCurrentModerationEvent(Action action)
+    {
+        var generation = Volatile.Read(ref _moderationContextGeneration);
         Dispatcher.UIThread.Post(() =>
         {
+            if (_disposed || _authSession is null ||
+                generation != Volatile.Read(ref _moderationContextGeneration))
+            {
+                return;
+            }
+            action();
+        });
+    }
+
+    private void OnAutoModMessageHeld(object? sender, AutoModHeldEventArgs eventArgs) =>
+        PostCurrentModerationEvent(() =>
+        {
+            if (!string.Equals(eventArgs.Message.ChannelLogin, Channel, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
             if (PendingAutoModMessages.All(item => item.Value.MessageId != eventArgs.Message.MessageId))
             {
                 PendingAutoModMessages.AppendBatch([new HeldAutoModMessageViewModel(eventArgs.Message)], 1000);
@@ -6197,17 +6303,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         });
 
     private void OnAutoModMessageResolved(object? sender, AutoModResolvedEventArgs eventArgs) =>
-        Dispatcher.UIThread.Post(() =>
+        PostCurrentModerationEvent(() =>
         {
             foreach (var item in PendingAutoModMessages.Where(item =>
-                         item.Value.MessageId == eventArgs.MessageId).ToArray())
+                         item.Value.MessageId == eventArgs.MessageId &&
+                         string.Equals(item.Value.BroadcasterId, eventArgs.BroadcasterId,
+                             StringComparison.Ordinal)).ToArray())
             {
                 _ = PendingAutoModMessages.Remove(item);
             }
         });
 
     private void OnEventSubUserBanned(object? sender, EventSubBanEventArgs eventArgs) =>
-        Dispatcher.UIThread.Post(() =>
+        PostCurrentModerationEvent(() =>
         {
             var value = eventArgs.Value;
             if (!string.Equals(value.BroadcasterLogin, Channel, StringComparison.OrdinalIgnoreCase))
@@ -6233,7 +6341,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         });
 
     private void OnEventSubUserUnbanned(object? sender, EventSubUnbanEventArgs eventArgs) =>
-        Dispatcher.UIThread.Post(() =>
+        PostCurrentModerationEvent(() =>
         {
             var value = eventArgs.Value;
             if (!string.Equals(value.BroadcasterLogin, Channel, StringComparison.OrdinalIgnoreCase))
@@ -6249,7 +6357,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         });
 
     private void OnEventSubUnbanRequestChanged(object? sender, EventSubUnbanRequestEventArgs eventArgs) =>
-        Dispatcher.UIThread.Post(() =>
+        PostCurrentModerationEvent(() =>
         {
             var value = eventArgs.Value;
             if (!string.Equals(value.BroadcasterLogin, Channel, StringComparison.OrdinalIgnoreCase))
@@ -6902,6 +7010,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         !item.Message.IsSystemEvent &&
         (item.Message.IsYouTubeMessage
             ? CanModerateYouTube &&
+              string.Equals(item.Message.Channel, GetYouTubeChannelKey(), StringComparison.Ordinal) &&
               item.Message.UserId.Length > 0 &&
               !string.Equals(item.Message.UserId, _youTubeAuthSession?.ChannelId, StringComparison.Ordinal)
             : CanModerate &&
@@ -6920,6 +7029,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                  string.Equals(user.Value.UserId, item.Message.UserId, StringComparison.Ordinal)) ||
                 string.Equals(user.Value.UserLogin, item.Message.UserLogin, StringComparison.OrdinalIgnoreCase)));
 
+    private bool IsYouTubeModerationContextCurrent(long generation, string channel, string liveChatId) =>
+        !_disposed && _youTubeAuthSession is not null &&
+        generation == Volatile.Read(ref _youTubeAuthenticationGeneration) &&
+        string.Equals(channel, GetYouTubeChannelKey(), StringComparison.Ordinal) &&
+        string.Equals(liveChatId, _youTubeLiveChatClient?.CurrentLiveChatId ?? string.Empty, StringComparison.Ordinal);
+
     private async Task<bool> RunYouTubeModerationActionAsync(
         ChatMessageItemViewModel item,
         Func<CancellationToken, Task> action,
@@ -6927,12 +7042,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         bool markAllUserMessages = false)
     {
         if (_youTubeLiveChatClient is null || !CanModerateMessage(item))
-        {
             return false;
-        }
+        var generation = Volatile.Read(ref _youTubeAuthenticationGeneration);
+        var channel = GetYouTubeChannelKey();
+        var liveChatId = _youTubeLiveChatClient.CurrentLiveChatId;
         try
         {
             await action(_lifetimeCancellation.Token).ConfigureAwait(true);
+            if (!IsYouTubeModerationContextCurrent(generation, channel, liveChatId)) return false;
             if (moderationState is { } state && markAllUserMessages)
             {
                 MarkUserMessages(item.Message.UserId, item.Message.UserLogin, state, item.Message.Channel);
@@ -6946,14 +7063,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             ModerationPanelStatus = Texts.ModerationActionComplete;
             return true;
         }
-        catch (OperationCanceledException cancellationException) when (_lifetimeCancellation.IsCancellationRequested || cancellationException is AuthenticationContextChangedException)
+        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested ||
+                                                !IsYouTubeModerationContextCurrent(generation, channel, liveChatId))
         {
             return false;
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception)
         {
-            StatusDetail = Texts.ModerationActionFailed + AppDiagnostics.GetUserMessage(exception);
-            ModerationPanelStatus = StatusDetail;
+            if (IsYouTubeModerationContextCurrent(generation, channel, liveChatId))
+            {
+                StatusDetail = Texts.ModerationActionFailed + AppDiagnostics.GetUserMessage(exception);
+                ModerationPanelStatus = StatusDetail;
+            }
             return false;
         }
     }
@@ -6964,13 +7085,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         ChatMessageModerationState moderationState)
     {
         if (_youTubeLiveChatClient is null || !CanModerateMessage(item))
-        {
             return false;
-        }
+        var generation = Volatile.Read(ref _youTubeAuthenticationGeneration);
+        var channel = GetYouTubeChannelKey();
+        var liveChatId = _youTubeLiveChatClient.CurrentLiveChatId;
         try
         {
             var ban = await _youTubeLiveChatClient.BanUserAsync(
                 item.Message, durationSeconds, _lifetimeCancellation.Token).ConfigureAwait(true);
+            if (!IsYouTubeModerationContextCurrent(generation, channel, liveChatId)) return false;
             foreach (var existing in YouTubeBans.Where(value =>
                          string.Equals(value.Value.UserChannelId, ban.UserChannelId, StringComparison.Ordinal)).ToArray())
             {
@@ -6983,14 +7106,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             ModerationPanelStatus = Texts.ModerationActionComplete;
             return true;
         }
-        catch (OperationCanceledException cancellationException) when (_lifetimeCancellation.IsCancellationRequested || cancellationException is AuthenticationContextChangedException)
+        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested ||
+                                                !IsYouTubeModerationContextCurrent(generation, channel, liveChatId))
         {
             return false;
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception)
         {
-            StatusDetail = Texts.ModerationActionFailed + AppDiagnostics.GetUserMessage(exception);
-            ModerationPanelStatus = StatusDetail;
+            if (IsYouTubeModerationContextCurrent(generation, channel, liveChatId))
+            {
+                StatusDetail = Texts.ModerationActionFailed + AppDiagnostics.GetUserMessage(exception);
+                ModerationPanelStatus = StatusDetail;
+            }
             return false;
         }
     }
@@ -7002,6 +7129,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         bool markAllUserMessages = false)
     {
         var session = _authSession;
+        var channel = NormalizeChannel(Channel);
+        var generation = Volatile.Read(ref _moderationContextGeneration);
         if (session is null || !CanModerateMessage(item))
         {
             return false;
@@ -7010,7 +7139,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         try
         {
             session = await EnsureValidSessionAsync(session, _lifetimeCancellation.Token);
+            if (!IsModerationContextCurrent(generation, channel, session) || !CanModerateMessage(item)) return false;
             await action(session, _lifetimeCancellation.Token);
+            if (!IsModerationContextCurrent(generation, channel, session)) return false;
             if (moderationState is { } state && markAllUserMessages)
             {
                 MarkUserMessages(
@@ -7029,14 +7160,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             ModerationPanelStatus = StatusDetail;
             return true;
         }
-        catch (OperationCanceledException cancellationException) when (_lifetimeCancellation.IsCancellationRequested || cancellationException is AuthenticationContextChangedException)
+        catch (OperationCanceledException cancellationException) when (_lifetimeCancellation.IsCancellationRequested ||
+                                                                     cancellationException is AuthenticationContextChangedException ||
+                                                                     !IsModerationContextCurrent(generation, channel, session))
         {
             return false;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            StatusDetail = Texts.ModerationActionFailed + AppDiagnostics.GetUserMessage(exception);
-            ModerationPanelStatus = StatusDetail;
+            if (IsModerationContextCurrent(generation, channel, session))
+            {
+                StatusDetail = Texts.ModerationActionFailed + AppDiagnostics.GetUserMessage(exception);
+                ModerationPanelStatus = StatusDetail;
+            }
             return false;
         }
     }
@@ -7458,7 +7594,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                     EnableBttvEmotes,
                     EnableSevenTvEmotes,
                     catalog,
-                    useLightTwitchTheme: string.Equals(Theme, "Light", StringComparison.Ordinal))).ConfigureAwait(false);
+                    useLightTwitchTheme: UseLightMessageTheme)).ConfigureAwait(false);
         }
         catch (OperationCanceledException cancellationException) when (_lifetimeCancellation.IsCancellationRequested || cancellationException is AuthenticationContextChangedException)
         {
@@ -7648,7 +7784,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                                 EnableBttvEmotes,
                                 EnableSevenTvEmotes,
                                 thirdPartyCatalog,
-                                useLightTwitchTheme: string.Equals(Theme, "Light", StringComparison.Ordinal));
+                                useLightTwitchTheme: UseLightMessageTheme);
                         }
                     }
                 }, DispatcherPriority.Background);
@@ -7709,6 +7845,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private void ApplyLanguage(string value)
     {
         Texts.SetLanguage(value);
+        RefreshObsPluginTextProperties();
         RefreshLocalizedOptions();
         OnPropertyChanged(nameof(VersionLabel));
         OnPropertyChanged(nameof(ProductVersionLabel));
@@ -8031,6 +8168,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         ClientId = ClientId,
         RedirectUri = RedirectUri,
         DonationAlertsAutoOpenWindow = DonationAlertsAutoOpenWindow,
+        ObsPluginDirectory = ObsPluginDirectory,
         EnableObsOverlay = EnableObsOverlay,
         OverlayPort = OverlayPort,
         OverlayMaxMessages = OverlayMaxMessages,
@@ -8079,6 +8217,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         ClientId = settings.ClientId;
         RedirectUri = settings.RedirectUri;
         DonationAlertsAutoOpenWindow = settings.DonationAlertsAutoOpenWindow;
+        ObsPluginDirectory = settings.ObsPluginDirectory;
         EnableObsOverlay = settings.EnableObsOverlay;
         OverlayPort = settings.OverlayPort;
         OverlayMaxMessages = settings.OverlayMaxMessages;
@@ -8192,6 +8331,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     private void ApplyDonationAlertsSession(DonationAlertsAuthSession session)
     {
+        Interlocked.Increment(ref _donationAlertsAuthenticationGeneration);
         _donationAlertsAuthSession = session;
         _donationAlertsHistoryPermissionRequired = false;
         DonationAlertsAccountName = string.IsNullOrWhiteSpace(session.DisplayName)
@@ -8208,9 +8348,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         ConnectDonationAlertsCommand.NotifyCanExecuteChanged();
     }
 
-    private void OnDonationReceived(object? sender, DonationAlertEventArgs eventArgs) =>
+    private void OnDonationReceived(object? sender, DonationAlertEventArgs eventArgs)
+    {
+        var generation = Volatile.Read(ref _donationAlertsAuthenticationGeneration);
         Dispatcher.UIThread.Post(() =>
         {
+            if (_disposed || _donationAlertsAuthSession is null ||
+                generation != Volatile.Read(ref _donationAlertsAuthenticationGeneration)) return;
             var donation = eventArgs.Donation;
             var value = new StreamEvent
             {
@@ -8221,7 +8365,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 DisplayName = donation.Username,
                 Message = donation.Message,
                 AmountDisplay = donation.Amount.ToString("0.##", CultureInfo.CurrentCulture) + " " + donation.Currency,
-                AmountMicros = decimal.ToInt64(decimal.Round(donation.Amount * 1_000_000m)),
+                AmountMicros = ToDonationAmountMicros(donation.Amount),
                 Currency = donation.Currency,
                 Timestamp = donation.ReceivedAtUtc
             };
@@ -8229,9 +8373,30 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             OnMessageReceived(this, new ChatMessageEventArgs(TwitchEventSubClient.ToSystemMessage(value)));
             EnqueueLiveDonation(donation);
         });
+    }
 
-    private void OnStreamEventReceived(object? sender, StreamEventEventArgs eventArgs) =>
-        Dispatcher.UIThread.Post(() => AddStreamEvent(eventArgs.Value));
+    private static long ToDonationAmountMicros(decimal amount)
+    {
+        const decimal scale = 1_000_000m;
+        // Keep the original display amount; only saturate the bounded event metadata.
+        if (amount >= long.MaxValue / scale) return long.MaxValue;
+        if (amount <= long.MinValue / scale) return long.MinValue;
+        return decimal.ToInt64(decimal.Round(amount * scale));
+    }
+
+    private void OnStreamEventReceived(object? sender, StreamEventEventArgs eventArgs)
+    {
+        var generation = Volatile.Read(ref _youTubeAuthenticationGeneration);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed) return;
+            if (string.Equals(eventArgs.Value.Platform, ChatPlatforms.YouTube, StringComparison.OrdinalIgnoreCase) &&
+                (_youTubeAuthSession is null ||
+                 generation != Volatile.Read(ref _youTubeAuthenticationGeneration) ||
+                 !string.Equals(eventArgs.Value.Channel, GetYouTubeChannelKey(), StringComparison.Ordinal))) return;
+            AddStreamEvent(eventArgs.Value);
+        });
+    }
 
     private void AddStreamEvent(StreamEvent value)
     {
@@ -8244,6 +8409,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         if (MatchesStreamEventFilter(item))
         {
             VisibleStreamEvents.AppendBatch([item], 1000);
+        }
+        // Remember a bounded recent window, plus every event still held by either view.
+        // Keeping IDs forever made long-running chats grow after their history was trimmed.
+        if (_streamEventIds.Count > 4096)
+        {
+            var retainedIds = StreamEvents.Concat(VisibleStreamEvents)
+                .Select(entry => entry.Value.Platform + ":" + entry.Value.Id);
+            _streamEventIds.IntersectWith(retainedIds);
         }
         OnPropertyChanged(nameof(HasStreamEvents));
         OnPropertyChanged(nameof(HasHeaderOverflowActivity));
@@ -8268,13 +8441,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private void OnDonationPlaybackStateChanged(
         object? sender,
         DonationPlaybackSnapshot snapshot) =>
-        Dispatcher.UIThread.Post(() => ApplyDonationPlaybackSnapshot(snapshot));
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_disposed) ApplyDonationPlaybackSnapshot(snapshot);
+        });
 
     private void OnDonationAlertsStatusChanged(
         object? sender,
-        DonationAlertsConnectionStatusEventArgs eventArgs) =>
+        DonationAlertsConnectionStatusEventArgs eventArgs)
+    {
+        var generation = Volatile.Read(ref _donationAlertsAuthenticationGeneration);
         Dispatcher.UIThread.Post(() =>
         {
+            if (_disposed || _donationAlertsAuthSession is null ||
+                generation != Volatile.Read(ref _donationAlertsAuthenticationGeneration)) return;
             IsDonationAlertsRealtimeConnected = eventArgs.IsConnected;
             IsDonationAlertsReconnecting = eventArgs.IsReconnecting;
             DonationAlertsStatus = eventArgs.IsConnected
@@ -8285,6 +8465,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                         ? Texts.DonationAlertsReconnecting
                         : Texts.DonationAlertsNotConnected;
         });
+    }
 
     private void EnqueueDonation(DonationAlert donation, bool addToHistory = true)
     {
@@ -8591,6 +8772,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     private void ApplyYouTubeSession(YouTubeAuthSession session)
     {
+        Interlocked.Increment(ref _youTubeAuthenticationGeneration);
+        IsYouTubeLiveConnected = false;
+        IsYouTubeConnecting = false;
+        YouTubeBroadcastTitle = string.Empty;
+        _youTubeModerationLiveChatId = string.Empty;
+        YouTubeBans.Clear();
+        OnPropertyChanged(nameof(HasYouTubeBans));
         _youTubeAuthSession = session;
         YouTubeAccountName = string.IsNullOrWhiteSpace(session.ChannelTitle)
             ? session.ChannelHandle
@@ -8639,9 +8827,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         OnPropertyChanged(nameof(HasDualChatSources));
     }
 
-    private void OnYouTubeStatusChanged(object? sender, ChatConnectionStatusEventArgs eventArgs) =>
+    private void OnYouTubeStatusChanged(object? sender, ChatConnectionStatusEventArgs eventArgs)
+    {
+        var generation = Volatile.Read(ref _youTubeAuthenticationGeneration);
         Dispatcher.UIThread.Post(() =>
         {
+            if (_disposed || _youTubeAuthSession is null ||
+                generation != Volatile.Read(ref _youTubeAuthenticationGeneration) ||
+                !string.Equals(eventArgs.Channel, GetYouTubeChannelKey(), StringComparison.Ordinal)) return;
             var liveChatId = eventArgs.State == ChatConnectionState.Connected
                 ? _youTubeLiveChatClient?.CurrentLiveChatId ?? string.Empty
                 : string.Empty;
@@ -8671,28 +8864,43 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             RebuildVisibleMessages();
             NotifyYouTubeModerationStateChanged();
         });
+    }
 
     private void OnYouTubeSessionUpdated(object? sender, YouTubeSessionEventArgs eventArgs)
     {
-        _youTubeAuthSession = eventArgs.Session;
-        Dispatcher.UIThread.Post(NotifyYouTubeModerationStateChanged);
-        try
-        {
-            _youTubeAuthSessionStore?.Save(eventArgs.Session);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
-                                          System.Security.Cryptography.CryptographicException)
-        {
-            Dispatcher.UIThread.Post(() =>
-                YouTubeStatus = Texts.SettingsSaveFailed(AppDiagnostics.GetUserMessage(exception)));
-        }
-    }
-
-    private void OnYouTubeMessageDeleted(object? sender, YouTubeMessageDeletedEventArgs eventArgs) =>
+        var generation = Volatile.Read(ref _youTubeAuthenticationGeneration);
         Dispatcher.UIThread.Post(() =>
         {
+            if (_disposed || _youTubeAuthSession is not { } current ||
+                generation != Volatile.Read(ref _youTubeAuthenticationGeneration) ||
+                (eventArgs.PreviousSession is not null && !ReferenceEquals(current, eventArgs.PreviousSession)) ||
+                !string.Equals(current.ChannelId, eventArgs.Session.ChannelId, StringComparison.Ordinal) ||
+                !string.Equals(current.ClientId, eventArgs.Session.ClientId, StringComparison.Ordinal)) return;
+            _youTubeAuthSession = eventArgs.Session;
+            NotifyYouTubeModerationStateChanged();
+            try
+            {
+                _youTubeAuthSessionStore?.Save(eventArgs.Session);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
+                                              System.Security.Cryptography.CryptographicException)
+            {
+                YouTubeStatus = Texts.SettingsSaveFailed(AppDiagnostics.GetUserMessage(exception));
+            }
+        });
+    }
+
+    private void OnYouTubeMessageDeleted(object? sender, YouTubeMessageDeletedEventArgs eventArgs)
+    {
+        var generation = Volatile.Read(ref _youTubeAuthenticationGeneration);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed || _youTubeAuthSession is null ||
+                generation != Volatile.Read(ref _youTubeAuthenticationGeneration)) return;
+            var channel = GetYouTubeChannelKey();
             foreach (var item in Messages.Where(item =>
                          item.Message.IsYouTubeMessage &&
+                         string.Equals(item.Message.Channel, channel, StringComparison.Ordinal) &&
                          string.Equals(
                              string.IsNullOrWhiteSpace(item.Message.PlatformMessageId)
                                  ? item.Message.Id
@@ -8704,13 +8912,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             }
             MessagesChanged?.Invoke(this, EventArgs.Empty);
         });
+    }
 
     [SuppressMessage(
         "Globalization",
         "CA1308:Normalize strings to uppercase",
         Justification = "Twitch channel logins are canonically lowercase.")]
     private static string NormalizeChannel(string value) =>
-        (value ?? string.Empty).Trim().TrimStart('#').ToLowerInvariant();
+        (value ?? string.Empty).Trim().TrimStart('@', '#').ToLowerInvariant();
 
     private static bool IsValidChannelLogin(string value) =>
         value.Length is > 0 and <= 25 &&

@@ -61,6 +61,7 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
     private long _bufferVersion;
     private int _maximumObservedBufferedServerSignalCount;
     private bool _disposed;
+    private Task? _disposeTask;
     private bool _halted;
 
     public DonationPlaybackCoordinator(
@@ -87,8 +88,11 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
 
     public bool TryEnqueueReplay(DonationAlert donation) => TryEnqueue(donation, replay: true);
 
-    public Task EnsureConnectedAsync(CancellationToken cancellationToken = default) =>
-        _controller.EnsureConnectedAsync(cancellationToken);
+    public Task EnsureConnectedAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
+        return _controller.EnsureConnectedAsync(cancellationToken);
+    }
 
     public void ClearPending()
     {
@@ -113,13 +117,42 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
         return await completion.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (_disposed)
+        lock (_admissionGate)
         {
-            return;
+            if (_disposeTask is null)
+            {
+                var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = completion.Task;
+                Volatile.Write(ref _disposed, true);
+                _ = CompleteDisposeAsync(completion);
+            }
+            return new ValueTask(_disposeTask);
         }
-        _disposed = true;
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031",
+        Justification = "Cleanup failures propagate through the shared completion task to all callers.")]
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            completion.TrySetResult();
+        }
+        catch (OperationCanceledException exception)
+        {
+            completion.TrySetCanceled(exception.CancellationToken);
+        }
+        catch (Exception exception)
+        {
+            completion.TrySetException(exception);
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
         _controller.PlaybackChanged -= OnPlaybackChanged;
         _commands.Writer.TryComplete();
         await _lifetimeCancellation.CancelAsync().ConfigureAwait(false);
@@ -130,8 +163,11 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
         catch (OperationCanceledException)
         {
         }
-        ClearBufferedServerSignals();
-        _lifetimeCancellation.Dispose();
+        finally
+        {
+            ClearBufferedServerSignals();
+            _lifetimeCancellation.Dispose();
+        }
     }
 
     private bool TryEnqueue(DonationAlert donation, bool replay)
@@ -317,12 +353,12 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
             return;
         }
 
-        var donation = _active.Donation;
+        var entry = _active;
         Publish(Snapshot with { CanHide = false, Error = string.Empty });
-        _ = ExecuteHideAsync(donation, command);
+        _ = ExecuteHideAsync(entry, command);
     }
 
-    private async Task ExecuteHideAsync(DonationAlert donation, RequestHide command)
+    private async Task ExecuteHideAsync(QueueEntry entry, RequestHide command)
     {
         try
         {
@@ -330,13 +366,13 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
             // until the server confirms or rejects it. A caller canceling its own wait
             // must not reopen the gate and allow a second skip command to be sent.
             await _controller.SkipDonationAsync(
-                donation,
+                entry.Donation,
                 _lifetimeCancellation.Token).ConfigureAwait(false);
             command.Completion.TrySetResult(true);
         }
         catch (Exception exception) when (IsControlException(exception))
         {
-            _commands.Writer.TryWrite(new ControlFailed(donation.Id, exception.Message));
+            _commands.Writer.TryWrite(new ControlFailed(entry.OperationId, exception.Message));
             command.Completion.TrySetResult(false);
         }
         finally
@@ -529,7 +565,7 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
             _queue.Count,
             false,
             string.Empty));
-        ScheduleTransition(entry.AlertId, entering: true);
+        ScheduleTransition(entry.OperationId, entering: true);
     }
 
     private void BeginExiting(DonationAlertsPlaybackAction action)
@@ -547,11 +583,11 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
             _queue.Count,
             false,
             string.Empty));
-        ScheduleTransition(_active.AlertId, entering: false, state);
+        ScheduleTransition(_active.OperationId, entering: false, state);
     }
 
     private void ScheduleTransition(
-        long alertId,
+        long operationId,
         bool entering,
         DonationPlaybackState terminalState = DonationPlaybackState.Completed)
     {
@@ -564,7 +600,7 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
                 {
                     await Task.Delay(duration, _lifetimeCancellation.Token).ConfigureAwait(false);
                 }
-                _commands.Writer.TryWrite(new TransitionFinished(alertId, entering, terminalState));
+                _commands.Writer.TryWrite(new TransitionFinished(operationId, entering, terminalState));
             }
             catch (OperationCanceledException)
             {
@@ -574,7 +610,7 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
 
     private void ProcessTransitionFinished(TransitionFinished command)
     {
-        if (_active?.AlertId != command.AlertId)
+        if (_active?.OperationId != command.OperationId)
         {
             return;
         }
@@ -592,6 +628,10 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
             return;
         }
 
+        if (Snapshot.State != DonationPlaybackState.Exiting)
+        {
+            return;
+        }
         var finished = _active;
         _active = null;
         ReleaseAdmission(finished.Donation.Id);
@@ -606,7 +646,7 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
 
     private void ProcessControlFailed(ControlFailed command)
     {
-        if (_active?.Donation.Id != command.DonationId)
+        if (_active?.OperationId != command.OperationId)
         {
             return;
         }
@@ -834,10 +874,10 @@ public sealed class DonationPlaybackCoordinator : IAsyncDisposable
     private sealed record ReplayFinished(long OperationId, string? Error) : Command;
     private sealed record StartWaitExpired(long OperationId) : Command;
     private sealed record TransitionFinished(
-        long AlertId,
+        long OperationId,
         bool Entering,
         DonationPlaybackState TerminalState) : Command;
-    private sealed record ControlFailed(string DonationId, string Error) : Command;
+    private sealed record ControlFailed(long OperationId, string Error) : Command;
     private sealed record RequestHide(TaskCompletionSource<bool> Completion) : Command;
     private sealed record ClearPendingQueue : Command;
     private sealed record QueueEntry(

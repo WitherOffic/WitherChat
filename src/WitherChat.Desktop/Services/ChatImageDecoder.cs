@@ -11,7 +11,8 @@ internal static class ChatImageDecoder
     private const int MaximumAnimationFrames = 180;
     private const long MaximumDecodedPixels = 12L * 1024 * 1024;
 
-    public static ChatImageMedia? Decode(ReadOnlySpan<byte> encoded)
+    public static ChatImageMedia? Decode(ReadOnlySpan<byte> encoded,
+        CancellationToken cancellationToken = default)
     {
         if (encoded.IsEmpty)
         {
@@ -20,6 +21,7 @@ internal static class ChatImageDecoder
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using var data = SKData.CreateCopy(encoded);
             using var codec = SKCodec.Create(data);
             if (codec is null)
@@ -52,6 +54,7 @@ internal static class ChatImageDecoder
             {
                 for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     using var bitmap = new SKBitmap(info);
                     bitmap.Erase(SKColors.Transparent);
                     var result = codec.GetPixels(
@@ -61,7 +64,8 @@ internal static class ChatImageDecoder
                         new SKCodecOptions(frameIndex));
                     if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
                     {
-                        return null;
+                        // Use the cleanup path: earlier frames already own native bitmaps.
+                        throw new InvalidDataException("Unable to decode an animation frame.");
                     }
 
                     frames.Add(new Bitmap(

@@ -24,6 +24,7 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly object _stateGate = new();
     private readonly Dictionary<long, TaskCompletionSource> _startWaiters = [];
+    private readonly Dictionary<TaskCompletionSource, int> _startWaiterConsumers = [];
     private readonly HashSet<long> _verifiedPayloadIds = [];
     private readonly HashSet<long> _unverifiedStarts = [];
     private WebSocket? _socket;
@@ -99,9 +100,10 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
         string widgetToken,
         CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
         lock (_stateGate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_isReady && _socket?.State == WebSocketState.Open &&
                 string.Equals(_connectedToken, widgetToken, StringComparison.Ordinal))
             {
@@ -114,6 +116,7 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
         {
             lock (_stateGate)
             {
+                ObjectDisposedException.ThrowIf(_disposed, this);
                 if (_isReady && _socket?.State == WebSocketState.Open &&
                     string.Equals(_connectedToken, widgetToken, StringComparison.Ordinal))
                 {
@@ -140,6 +143,7 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
             {
                 socket = await _socketFactory(endpoint, timeout.Token).ConfigureAwait(false) ??
                     throw new InvalidOperationException("DonationAlerts socket factory returned no socket.");
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
                 heartbeatSettings = await WaitForEngineOpenAsync(socket, timeout.Token).ConfigureAwait(false);
                 // DonationAlerts currently advertises Engine.IO v3. In that protocol the
                 // server initiates the default Socket.IO namespace connection. Sending a
@@ -172,6 +176,12 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
             var startReceive = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (_stateGate)
             {
+                if (_disposed)
+                {
+                    socket.Dispose();
+                    runCancellation.Dispose();
+                    throw new ObjectDisposedException(nameof(DonationAlertsWidgetSocketClient));
+                }
                 _socket = socket;
                 _connectedToken = widgetToken;
                 _socketCancellation = runCancellation;
@@ -233,6 +243,8 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
                 _startWaiters.Add(alertId, waiter);
                 sendCommand = true;
             }
+            _startWaiterConsumers.TryGetValue(waiter, out var consumers);
+            _startWaiterConsumers[waiter] = consumers + 1;
         }
 
         if (sendCommand)
@@ -247,14 +259,7 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
             catch (Exception exception)
             {
                 waiter.TrySetException(exception);
-                lock (_stateGate)
-                {
-                    if (_startWaiters.TryGetValue(alertId, out var registered) &&
-                        ReferenceEquals(registered, waiter))
-                    {
-                        _startWaiters.Remove(alertId);
-                    }
-                }
+                ReleaseStartWaiter(alertId, waiter);
                 throw;
             }
         }
@@ -362,19 +367,34 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
 
     public void Dispose()
     {
-        if (_disposed)
+        WebSocket? socket;
+        CancellationTokenSource? cancellation;
+        lock (_stateGate)
         {
-            return;
+            if (_disposed)
+            {
+                return;
+            }
+            Volatile.Write(ref _disposed, true);
+            socket = _socket;
+            cancellation = _socketCancellation;
+            _socket = null;
+            _socketCancellation = null;
+            _receiveTask = null;
+            _connectedToken = string.Empty;
+            _activeAlertId = 0;
+            _isReady = false;
+            _verifiedPayloadIds.Clear();
+            _unverifiedStarts.Clear();
         }
-        _disposed = true;
-        _socketCancellation?.Cancel();
-        _socket?.Dispose();
+        cancellation?.Cancel();
+        socket?.Dispose();
         FailPendingCommands(new ObjectDisposedException(nameof(DonationAlertsWidgetSocketClient)));
-        _hostGate.Dispose();
-        _connectionGate.Dispose();
-        _sendGate.Dispose();
-        _socketCancellation?.Dispose();
+        cancellation?.Dispose();
         _httpClient.Dispose();
+        // Pending async operations still release these gates in their finally blocks.
+        // No AvailableWaitHandle is created, so the gates only own managed state and
+        // are reclaimed with this client after those operations finish.
     }
 
     internal static bool TryReadSocketHost(string html, out Uri socketHost)
@@ -407,13 +427,28 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
         }
         finally
         {
-            lock (_stateGate)
+            ReleaseStartWaiter(alertId, waiter);
+        }
+    }
+
+    private void ReleaseStartWaiter(long alertId, TaskCompletionSource waiter)
+    {
+        lock (_stateGate)
+        {
+            if (!_startWaiterConsumers.TryGetValue(waiter, out var consumers))
             {
-                if (_startWaiters.TryGetValue(alertId, out var registered) &&
-                    ReferenceEquals(registered, waiter))
-                {
-                    _startWaiters.Remove(alertId);
-                }
+                return;
+            }
+            if (consumers > 1 && !waiter.Task.IsCompleted)
+            {
+                _startWaiterConsumers[waiter] = consumers - 1;
+                return;
+            }
+            _startWaiterConsumers.Remove(waiter);
+            if (_startWaiters.TryGetValue(alertId, out var registered) &&
+                ReferenceEquals(registered, waiter))
+            {
+                _startWaiters.Remove(alertId);
             }
         }
     }
@@ -487,6 +522,9 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
                     _isReady = false;
                 }
             }
+            // The receive loop owns this transport. Once it is detached above,
+            // a later reconnect can no longer find it to release its resources.
+            socket.Dispose();
             if (notifyLost)
             {
                 failure ??= new IOException("DonationAlerts closed the direct control connection.");
@@ -531,6 +569,10 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
 
     internal void ProcessSocketPacket(string packet)
     {
+        if (Volatile.Read(ref _disposed))
+        {
+            return;
+        }
         if (TryReadAlertAction(packet, out var action, out var alertId))
         {
             ProcessPlaybackAction(action, alertId);
@@ -557,6 +599,10 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
 
         lock (_stateGate)
         {
+            if (_disposed)
+            {
+                return;
+            }
             if (playbackAction == DonationAlertsPlaybackAction.Started)
             {
                 if (!_verifiedPayloadIds.Remove(alertId))
@@ -583,7 +629,10 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
                 }
             }
         }
-        PlaybackChanged?.Invoke(this, new DonationAlertsPlaybackEventArgs(playbackAction.Value, alertId));
+        if (!Volatile.Read(ref _disposed))
+        {
+            PlaybackChanged?.Invoke(this, new DonationAlertsPlaybackEventArgs(playbackAction.Value, alertId));
+        }
     }
 
     private void ProcessDonationPayload(long alertId)
@@ -591,6 +640,10 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
         var completeEarlyStart = false;
         lock (_stateGate)
         {
+            if (_disposed)
+            {
+                return;
+            }
             if (_activeAlertId == alertId)
             {
                 return;
@@ -620,6 +673,7 @@ internal sealed partial class DonationAlertsWidgetSocketClient :
                 waiter.TrySetException(exception);
             }
             _startWaiters.Clear();
+            _startWaiterConsumers.Clear();
             _skipWaiter?.TrySetException(exception);
             _skipWaiter = null;
             _skipAlertId = 0;

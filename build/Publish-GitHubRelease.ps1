@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$PackageDirectory,
-    [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+(?:A)?$')][string]$Version,
+    [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+(?:\.\d+)?(?:A)?$')][string]$Version,
+    [string]$ObsPluginPackage,
     [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$SourceCommit,
     [ValidateSet('WitherOffic/WitherChat')][string]$Repository = 'WitherOffic/WitherChat',
     [string]$OutputDirectory,
@@ -45,6 +46,13 @@ $releaseZip = Join-Path $output "WitherChat-$Version-win-x64-portable.zip"
 Copy-Item -LiteralPath $exe -Destination $releaseExe
 Compress-Archive -Path (Join-Path $package '*') -DestinationPath $releaseZip
 $assets = @($releaseExe, $releaseZip)
+if (-not [string]::IsNullOrWhiteSpace($ObsPluginPackage)) {
+    $obsInput = (Resolve-Path -LiteralPath $ObsPluginPackage).Path
+    if ([IO.Path]::GetExtension($obsInput) -ne '.zip') { throw 'OBS plugin package must be a ZIP.' }
+    $obsAsset = Join-Path $output "WitherChat-$Version-OBS-Dock-win-x64.zip"
+    Copy-Item -LiteralPath $obsInput -Destination $obsAsset
+    $assets += $obsAsset
+}
 $hashes = @($assets | ForEach-Object { Get-FileHash -LiteralPath $_ -Algorithm SHA256 })
 $checksum = Join-Path $output 'SHA256SUMS.txt'
 [IO.File]::WriteAllText($checksum, (($hashes | ForEach-Object {
@@ -136,12 +144,14 @@ $notes = $notes.Replace('<!-- BUILD_PROVENANCE -->', $provenance)
 $generatedNotes = Join-Path $output 'release-notes.md'
 [IO.File]::WriteAllText($generatedNotes, $notes, [Text.UTF8Encoding]::new($false))
 $ghArgs = @('release', 'create', $tag) + $assets + @('--repo', $Repository,
-    '--target', $SourceCommit, '--draft', '--prerelease', '--latest=false',
+    '--target', $SourceCommit, '--draft', '--latest=false',
     '--title', "WitherChat $Version - Windows x64", '--notes-file', $generatedNotes)
+$isPrerelease = $Version.EndsWith('A', [StringComparison]::Ordinal)
+if ($isPrerelease) { $ghArgs += '--prerelease' }
 & gh @ghArgs
 if ($LASTEXITCODE -ne 0) { throw 'GitHub draft creation or asset upload failed.' }
 $draft = Get-GitHubRelease $tag
-if ($null -eq $draft -or -not $draft.draft -or -not $draft.prerelease -or
+if ($null -eq $draft -or -not $draft.draft -or $draft.prerelease -ne $isPrerelease -or
     $draft.target_commitish -ne $SourceCommit -or $draft.tag_name -ne $tag) {
     throw 'Unexpected draft metadata; release has not been published.'
 }
@@ -155,7 +165,9 @@ foreach ($path in $assets) {
         throw 'Uploaded asset verification failed; draft has not been published.'
     }
 }
-& gh release edit $tag --repo $Repository --draft=false --prerelease --latest=false
+$publishArgs = @('release', 'edit', $tag, '--repo', $Repository, '--draft=false')
+$publishArgs += if ($isPrerelease) { @('--prerelease', '--latest=false') } else { @('--prerelease=false', '--latest=true') }
+& gh @publishArgs
 if ($LASTEXITCODE -ne 0) { throw 'Publishing the verified draft failed.' }
 $published = Get-GitHubResource "releases/tags/$tag"
 if ($null -eq $published -or $published.draft -or $published.tag_name -ne $tag -or

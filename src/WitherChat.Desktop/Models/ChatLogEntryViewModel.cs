@@ -68,8 +68,12 @@ public sealed class ChatLogEntryViewModel : ViewModelBase
                     user = ReadString(root, "userLogin");
                 }
                 var text = ReadString(root, "text");
-                var badges = ReadArray<ChatBadge>(root, "badges");
-                var parts = ReadArray<ChatMessagePart>(root, "parts");
+                var badges = ReadArray<ChatBadge>(root, "badges")
+                    .Where(badge => !string.IsNullOrWhiteSpace(badge.SetId))
+                    .ToArray();
+                IReadOnlyList<ChatMessagePart> parts = ReadArray<ChatMessagePart>(root, "parts")
+                    .Where(part => part.Text is not null && Enum.IsDefined(part.Kind))
+                    .ToArray();
                 if (parts.Count == 0 && text.Length > 0)
                 {
                     parts = [ChatMessagePart.PlainText(text)];
@@ -180,7 +184,7 @@ public sealed class ChatLogEntryViewModel : ViewModelBase
 
         try
         {
-            return element.Deserialize<T[]>(LogJsonOptions) ?? [];
+            return element.Deserialize<T[]>(LogJsonOptions)?.Where(item => item is not null).ToArray() ?? [];
         }
         catch (JsonException)
         {

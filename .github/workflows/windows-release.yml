@@ -2,7 +2,7 @@ name: Windows release
 
 on:
   push:
-    branches: [main, release-0.5.1a-publication]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ concurrency:
 
 env:
   AVALONIA_TELEMETRY_OPTOUT: "1"
-  WITHERCHAT_VERSION: "0.5.1A"
+  WITHERCHAT_VERSION: "0.6"
   WITHERCHAT_RUNTIME_VERSION: "8.0.30"
 
 jobs:
@@ -52,11 +52,31 @@ jobs:
           if ((Get-Item -LiteralPath $exe).VersionInfo.ProductVersion -ne $env:WITHERCHAT_VERSION) { throw 'EXE version mismatch.' }
           Write-Output "This release is unsigned; Smart App Control compatibility is not certified."
 
+      - name: Package OBS dock with the same EXE
+        shell: pwsh
+        run: |
+          $dll = Join-Path $env:RUNNER_TEMP 'witherchat-obs-production.dll'
+          $payload = [IO.Compression.ZipFile]::OpenRead((Join-Path $env:GITHUB_WORKSPACE 'src/WitherChat.Desktop/Assets/ObsPlugin/windows-x64.zip'))
+          try {
+            $entry = $payload.GetEntry('obs-plugins/64bit/witherchat-obs.dll')
+            if ($null -eq $entry) { throw 'Production OBS DLL is missing.' }
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dll, $false)
+          } finally { $payload.Dispose() }
+          ./build/Package-ObsDock.ps1 -NativeDll $dll -AppPackage "artifacts/WitherChat/windows/current/$env:WITHERCHAT_VERSION/win-x64-single-file" -OutputDirectory "$env:GITHUB_WORKSPACE/artifacts/WitherChat-$env:WITHERCHAT_VERSION-OBS-Dock-win-x64"
+
       - name: Upload standalone package with notices
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: WitherChat-${{ env.WITHERCHAT_VERSION }}-win-x64-UNSIGNED
           path: artifacts/WitherChat/windows/current/${{ env.WITHERCHAT_VERSION }}/win-x64-single-file/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload OBS dock package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: WitherChat-${{ env.WITHERCHAT_VERSION }}-OBS-Dock-win-x64
+          path: artifacts/WitherChat-${{ env.WITHERCHAT_VERSION }}-OBS-Dock-win-x64.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -80,6 +100,12 @@ jobs:
           name: WitherChat-${{ env.WITHERCHAT_VERSION }}-win-x64-UNSIGNED
           path: ${{ runner.temp }}/witherchat-package
 
+      - name: Download this run's OBS dock package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: WitherChat-${{ env.WITHERCHAT_VERSION }}-OBS-Dock-win-x64
+          path: ${{ runner.temp }}/witherchat-obs
+
       - name: Prepare files, verify uploads, then publish
         shell: pwsh
         env:
@@ -91,7 +117,7 @@ jobs:
             -Version $env:WITHERCHAT_VERSION `
             -SourceCommit $env:RELEASE_SOURCE_COMMIT `
             -Repository $env:GITHUB_REPOSITORY `
-            -RecoverDraftFromCommit 'df6412d379f902fa75b950430f247dd95b3e722d'
+            -ObsPluginPackage "$env:RUNNER_TEMP/witherchat-obs/WitherChat-$env:WITHERCHAT_VERSION-OBS-Dock-win-x64.zip"
 
 # Public publication is currently unsigned; no SignPath signing token/request.
 # Enable signing only after Foundation acceptance, MFA setup, artifact-policy

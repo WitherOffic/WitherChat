@@ -39,6 +39,19 @@ public static partial class ChatLinkParser
             return [];
         }
 
+        try
+        {
+            return ParseCore(text);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // Preserve the entire message; partial link parsing must not lose text.
+            return [new ChatLinkSegment(text)];
+        }
+    }
+
+    private static IReadOnlyList<ChatLinkSegment> ParseCore(string text)
+    {
         var result = new List<ChatLinkSegment>();
         var position = 0;
         foreach (Match match in UrlRegex().Matches(text))
@@ -119,17 +132,18 @@ public static partial class ChatLinkParser
         char opening,
         char closing)
     {
-        while (length > 0 &&
-               value[length - 1] == closing &&
-               value.AsSpan(0, length).Count(opening) < value.AsSpan(0, length).Count(closing))
+        var span = value.AsSpan(0, length);
+        var excessClosing = span.Count(closing) - span.Count(opening);
+        while (length > 0 && excessClosing > 0 && value[length - 1] == closing)
         {
             length--;
+            excessClosing--;
         }
         return length;
     }
 
     [GeneratedRegex(
         @"(?i)(?<![\p{L}\p{N}_@])(?:(?:https?://|www\.)[^\s<>{}\[\]""']+|(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+(?:[\p{L}]{2,24}|xn--[a-z0-9-]{2,59})(?::\d{2,5})?(?:[/?#][^\s<>{}\[\]""']*)?)(?![\p{L}\p{N}_-])",
-        RegexOptions.CultureInvariant)]
+        RegexOptions.CultureInvariant, 100)]
     private static partial Regex UrlRegex();
 }

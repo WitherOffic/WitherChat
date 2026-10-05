@@ -44,7 +44,7 @@ public partial class DonationAlertsWindow : Window
         Closed += OnClosed;
         Opened += OnOpened;
         DataContextChanged += OnDataContextChanged;
-        SizeChanged += (_, _) => PositionDonationTutorial();
+        SizeChanged += (_, _) => UpdateObsDockLayout();
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         WindowRoot.AddHandler(
             PointerMovedEvent,
@@ -69,6 +69,8 @@ public partial class DonationAlertsWindow : Window
         Deactivated += (_, _) => StopMiddleScroll();
     }
 
+    internal event EventHandler? ObsDockBackToChatRequested;
+
     public void CloseForApplicationExit()
     {
         _allowClose = true;
@@ -92,6 +94,14 @@ public partial class DonationAlertsWindow : Window
 
     private void OnClosed(object? sender, EventArgs eventArgs)
     {
+        StopMiddleScroll();
+        if (_viewModel is not null)
+        {
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            _viewModel = null;
+        }
+        DataContextChanged -= OnDataContextChanged;
+
         var platformHandle = TryGetPlatformHandle();
         if (platformHandle is not null &&
             string.Equals(platformHandle.HandleDescriptor, "HWND", StringComparison.Ordinal))
@@ -117,7 +127,7 @@ public partial class DonationAlertsWindow : Window
 
     private void TitleBar_OnPointerPressed(object? sender, PointerPressedEventArgs eventArgs)
     {
-        if (eventArgs.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (!_isObsDockLayout && eventArgs.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             BeginMoveDrag(eventArgs);
         }
@@ -135,7 +145,7 @@ public partial class DonationAlertsWindow : Window
 
     private void WindowRoot_OnPointerMoved(object? sender, PointerEventArgs eventArgs)
     {
-        if (_middleScrollActive)
+        if (_isObsDockLayout || _middleScrollActive)
         {
             Cursor = Avalonia.Input.Cursor.Default;
             return;
@@ -154,7 +164,7 @@ public partial class DonationAlertsWindow : Window
 
     private void WindowRoot_OnPointerPressed(object? sender, PointerPressedEventArgs eventArgs)
     {
-        if (!eventArgs.GetCurrentPoint(this).Properties.IsLeftButtonPressed ||
+        if (_isObsDockLayout || !eventArgs.GetCurrentPoint(this).Properties.IsLeftButtonPressed ||
             ResizeEdgeAt(eventArgs.GetPosition(this), Bounds.Size) is not { } edge)
         {
             return;
@@ -369,8 +379,10 @@ public partial class DonationAlertsWindow : Window
         var targetRect = GetTutorialTargetRect(target, 5);
         SetDonationTutorialFocusGeometry(targetRect);
 
-        var cardWidth = Math.Min(380, Math.Max(300, Bounds.Width - 32));
-        var cardMaxHeight = Math.Max(280, Bounds.Height - 68);
+        var edgeMargin = Bounds.Width < 420 ? 8 : 16;
+        const double topMargin = 52;
+        var cardWidth = Math.Min(380, Math.Max(1, Bounds.Width - edgeMargin * 2));
+        var cardMaxHeight = Math.Max(1, Bounds.Height - topMargin - edgeMargin);
         DonationTutorialCard.Width = cardWidth;
         DonationTutorialCard.MaxWidth = cardWidth;
         DonationTutorialCard.MaxHeight = cardMaxHeight;
@@ -378,17 +390,17 @@ public partial class DonationAlertsWindow : Window
         var cardHeight = DonationTutorialCard.Bounds.Height > 120
             ? Math.Min(cardMaxHeight, DonationTutorialCard.Bounds.Height)
             : Math.Min(cardMaxHeight, 330);
-        var left = Math.Max(16, (Bounds.Width - cardWidth) / 2);
-        var top = Math.Max(52, (Bounds.Height - cardHeight) / 2);
+        var left = Math.Max(edgeMargin, (Bounds.Width - cardWidth) / 2);
+        var top = Math.Max(topMargin, (Bounds.Height - cardHeight) / 2);
         if (targetRect is { } rect)
         {
             const double gap = 14;
-            const double edge = 16;
+            var edge = edgeMargin;
             if (rect.Bottom + gap + cardHeight <= Bounds.Height - edge)
             {
                 top = rect.Bottom + gap;
             }
-            else if (rect.Top - gap - cardHeight >= 52)
+            else if (rect.Top - gap - cardHeight >= topMargin)
             {
                 top = rect.Top - gap - cardHeight;
             }
@@ -478,7 +490,8 @@ public partial class DonationAlertsWindow : Window
             if (eventArgs.Key == Key.Escape)
             {
                 StopMiddleScroll();
-                Hide();
+                if (_isObsDockLayout) ObsDockBackToChatRequested?.Invoke(this, EventArgs.Empty);
+                else Hide();
                 eventArgs.Handled = true;
             }
             return;

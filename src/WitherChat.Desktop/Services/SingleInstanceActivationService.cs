@@ -11,12 +11,14 @@ internal sealed class SingleInstanceActivationService : IAsyncDisposable
     private readonly string _pipeName;
     private readonly CancellationTokenSource _cancellation = new();
     private readonly Task _listenerTask;
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
 
     public SingleInstanceActivationService(Action showWindow, string? pipeName = null)
     {
         ArgumentNullException.ThrowIfNull(showWindow);
         _showWindow = showWindow;
-        _pipeName = string.IsNullOrWhiteSpace(pipeName) ? DefaultPipeName : pipeName;
+        _pipeName = string.IsNullOrWhiteSpace(pipeName) ? SessionPipeName.ForCurrentSession(DefaultPipeName) : pipeName;
         _listenerTask = ListenAsync(_cancellation.Token);
     }
 
@@ -24,7 +26,7 @@ internal sealed class SingleInstanceActivationService : IAsyncDisposable
         string? pipeName = null,
         CancellationToken cancellationToken = default)
     {
-        pipeName = string.IsNullOrWhiteSpace(pipeName) ? DefaultPipeName : pipeName;
+        pipeName = string.IsNullOrWhiteSpace(pipeName) ? SessionPipeName.ForCurrentSession(DefaultPipeName) : pipeName;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(2));
         try
@@ -56,24 +58,41 @@ internal sealed class SingleInstanceActivationService : IAsyncDisposable
         }
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (_cancellation.IsCancellationRequested)
+        TaskCompletionSource completion;
+        lock (_disposeGate)
         {
-            return;
+            if (_disposeTask is not null) return new ValueTask(_disposeTask);
+            completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
         }
+        _ = CompleteDisposeAsync(completion);
+        return new ValueTask(completion.Task);
+    }
 
-        _cancellation.Cancel();
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031",
+        Justification = "All callers receive cleanup errors through the shared completion task.")]
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
         try
         {
-            await _listenerTask.ConfigureAwait(false);
+            try { await _cancellation.CancelAsync().ConfigureAwait(false); }
+            finally
+            {
+                try { await _listenerTask.ConfigureAwait(false); }
+                catch (OperationCanceledException) { }
+                finally { _cancellation.Dispose(); }
+            }
+            completion.TrySetResult();
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException exception)
         {
+            completion.TrySetCanceled(exception.CancellationToken);
         }
-        finally
+        catch (Exception exception)
         {
-            _cancellation.Dispose();
+            completion.TrySetException(exception);
         }
     }
 
@@ -90,8 +109,11 @@ internal sealed class SingleInstanceActivationService : IAsyncDisposable
                     PipeTransmissionMode.Byte,
                     GetPipeOptions());
                 await server.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
-                using var reader = new StreamReader(server, Encoding.UTF8, leaveOpen: true);
-                var command = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                // One incomplete client must not occupy the activation channel indefinitely.
+                // SHOW is an ASCII command; share the bounded framing used by the OBS channel.
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(TimeSpan.FromSeconds(2));
+                var command = await ObsDockIpcService.ReadLineAsync(server, timeout.Token).ConfigureAwait(false);
                 if (string.Equals(command, ShowCommand, StringComparison.Ordinal))
                 {
                     _showWindow();
@@ -101,12 +123,22 @@ internal sealed class SingleInstanceActivationService : IAsyncDisposable
             {
                 return;
             }
+            catch (OperationCanceledException)
+            {
+                await DelayAfterFailureAsync(cancellationToken).ConfigureAwait(false);
+            }
             catch (IOException)
             {
                 await DelayAfterFailureAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (UnauthorizedAccessException)
             {
+                await DelayAfterFailureAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                // A failed activation callback must not permanently kill the listener.
+                AppDiagnostics.Write("Single-instance activation", exception);
                 await DelayAfterFailureAsync(cancellationToken).ConfigureAwait(false);
             }
         }

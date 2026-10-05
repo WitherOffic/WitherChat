@@ -11,10 +11,10 @@
     <Product>WitherChat</Product>
     <Copyright>WitherChat</Copyright>
     <Description>Cross-platform core for WitherChat.</Description>
-    <Version>0.5.1-alpha</Version>
-    <FileVersion>0.5.1.0</FileVersion>
-    <AssemblyVersion>0.5.1.0</AssemblyVersion>
-    <InformationalVersion>0.5.1A</InformationalVersion>
+    <Version>0.6.0</Version>
+    <FileVersion>0.6.0.0</FileVersion>
+    <AssemblyVersion>0.6.0.0</AssemblyVersion>
+    <InformationalVersion>0.6</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Deterministic>true</Deterministic>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

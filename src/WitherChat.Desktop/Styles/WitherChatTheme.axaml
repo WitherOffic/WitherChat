@@ -11,6 +11,7 @@
                     </LinearGradientBrush>
                     <SolidColorBrush x:Key="SurfaceBrush">#D0101420</SolidColorBrush>
                     <SolidColorBrush x:Key="SurfaceRaisedBrush">#B8131824</SolidColorBrush>
+                    <SolidColorBrush x:Key="MenuSurfaceBrush">#131824</SolidColorBrush>
                     <SolidColorBrush x:Key="SurfaceHoverBrush">#5A2A3347</SolidColorBrush>
                     <SolidColorBrush x:Key="BorderBrush">#2BFFFFFF</SolidColorBrush>
                     <SolidColorBrush x:Key="BorderStrongBrush">#55FFFFFF</SolidColorBrush>
@@ -35,11 +36,11 @@
                     <SolidColorBrush x:Key="WarningBrush">#F6C85F</SolidColorBrush>
                     <SolidColorBrush x:Key="DonationAccentBrush">#FF9D45</SolidColorBrush>
                     <SolidColorBrush x:Key="DonationAccentSoftBrush">#FFAA65</SolidColorBrush>
-                    <SolidColorBrush x:Key="PopupBrush">#F00C101A</SolidColorBrush>
+                    <SolidColorBrush x:Key="PopupBrush">#FF0C101A</SolidColorBrush>
                     <LinearGradientBrush x:Key="OnboardingGlassBrush" StartPoint="0%,0%" EndPoint="100%,100%">
-                        <GradientStop Color="#FA151929" Offset="0" />
-                        <GradientStop Color="#F7121524" Offset="0.52" />
-                        <GradientStop Color="#FA101725" Offset="1" />
+                        <GradientStop Color="#151929" Offset="0" />
+                        <GradientStop Color="#121524" Offset="0.52" />
+                        <GradientStop Color="#101725" Offset="1" />
                     </LinearGradientBrush>
                     <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0%,0%" EndPoint="100%,100%">
                         <GradientStop Color="#A88CFF" Offset="0" />
@@ -55,6 +56,7 @@
                     </LinearGradientBrush>
                     <SolidColorBrush x:Key="SurfaceBrush">#EFFFFFFF</SolidColorBrush>
                     <SolidColorBrush x:Key="SurfaceRaisedBrush">#DDF7F8FC</SolidColorBrush>
+                    <SolidColorBrush x:Key="MenuSurfaceBrush">#F7F8FC</SolidColorBrush>
                     <SolidColorBrush x:Key="SurfaceHoverBrush">#BFDDE2ED</SolidColorBrush>
                     <SolidColorBrush x:Key="BorderBrush">#2B111827</SolidColorBrush>
                     <SolidColorBrush x:Key="BorderStrongBrush">#55111827</SolidColorBrush>
@@ -79,11 +81,11 @@
                     <SolidColorBrush x:Key="WarningBrush">#765400</SolidColorBrush>
                     <SolidColorBrush x:Key="DonationAccentBrush">#A43B00</SolidColorBrush>
                     <SolidColorBrush x:Key="DonationAccentSoftBrush">#923100</SolidColorBrush>
-                    <SolidColorBrush x:Key="PopupBrush">#F8FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="PopupBrush">#FFFFFFFF</SolidColorBrush>
                     <LinearGradientBrush x:Key="OnboardingGlassBrush" StartPoint="0%,0%" EndPoint="100%,100%">
-                        <GradientStop Color="#FAFFFFFF" Offset="0" />
-                        <GradientStop Color="#F6F6F8FF" Offset="0.52" />
-                        <GradientStop Color="#FAF5FBFF" Offset="1" />
+                        <GradientStop Color="#FFFFFF" Offset="0" />
+                        <GradientStop Color="#F6F8FF" Offset="0.52" />
+                        <GradientStop Color="#F5FBFF" Offset="1" />
                     </LinearGradientBrush>
                     <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0%,0%" EndPoint="100%,100%">
                         <GradientStop Color="#8D73F4" Offset="0" />

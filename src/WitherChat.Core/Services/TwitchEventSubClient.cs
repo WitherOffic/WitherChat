@@ -67,6 +67,8 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
     ];
     private readonly TwitchChatApiClient _apiClient;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
     private readonly object _stateLock = new();
     private readonly object _messageIdLock = new();
     private readonly HashSet<string> _detailedChannelPointChannels = new(StringComparer.OrdinalIgnoreCase);
@@ -121,6 +123,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
         await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
             await StopCoreAsync().ConfigureAwait(false);
             if (session is null || channels.Count == 0)
             {
@@ -150,6 +153,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                 return;
             }
 
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
             var cancellation = new CancellationTokenSource();
             _cancellation = cancellation;
             _runTask = RunAsync(session, resolved, cancellation.Token);
@@ -160,12 +164,42 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
         }
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        lock (_disposeGate)
         {
-            return;
+            if (_disposeTask is null)
+            {
+                var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = completion.Task;
+                _ = CompleteDisposeAsync(completion);
+            }
+            return new ValueTask(_disposeTask);
         }
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031",
+        Justification = "Cleanup exceptions are propagated to every caller through the shared completion task.")]
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            completion.TrySetResult();
+        }
+        catch (OperationCanceledException exception)
+        {
+            completion.TrySetCanceled(exception.CancellationToken);
+        }
+        catch (Exception exception)
+        {
+            completion.TrySetException(exception);
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        Volatile.Write(ref _disposed, 1);
         await _lifecycleLock.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -173,8 +207,9 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
         }
         finally
         {
+            // No AvailableWaitHandle is created. Pending configuration callers
+            // still need the managed gate to observe the disposed-state guard.
             _lifecycleLock.Release();
-            _lifecycleLock.Dispose();
         }
     }
 

@@ -8,6 +8,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Media.Transformation;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -91,6 +92,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        CaptureResponsivePanelLayout();
         if (HeaderMoreToolsButton.Flyout is { } headerMoreToolsFlyout)
         {
             headerMoreToolsFlyout.Opened += OnHeaderMoreToolsFlyoutOpened;
@@ -181,6 +183,7 @@ public partial class MainWindow : Window
         }
 
         _subscribedViewModel = viewModel;
+        viewModel.UpdateActualTheme(ActualThemeVariant == ThemeVariant.Light);
         AnimatedEmoteImage.SetReduceMotion(viewModel.ReduceMotion);
         viewModel.MessagesChanged += OnMessagesChanged;
         viewModel.ScrollToLatestRequested += OnScrollToLatestRequested;
@@ -290,6 +293,7 @@ public partial class MainWindow : Window
 
     private void EnableWindowsSystemWindowAnimations()
     {
+        if (_isObsDockLayout) return;
         var platformHandle = TryGetPlatformHandle();
         if (platformHandle is not null &&
             string.Equals(platformHandle.HandleDescriptor, "HWND", StringComparison.Ordinal))
@@ -314,6 +318,7 @@ public partial class MainWindow : Window
 
     private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs eventArgs)
     {
+        UpdateObsDockLayout();
         UpdateSettingsCardSize();
         if (ChannelEditorCard.IsVisible)
         {
@@ -403,6 +408,7 @@ public partial class MainWindow : Window
         MomentActionsPanel.HorizontalAlignment = narrow ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
         Grid.SetColumn(SaveMomentButton, narrow ? 0 : 2);
         Grid.SetRow(SaveMomentButton, narrow ? 2 : 0);
+        ApplyResponsivePanelLayout();
     }
 
     private void MomentRow_OnSizeChanged(object? sender, SizeChangedEventArgs eventArgs)
@@ -1335,7 +1341,7 @@ public partial class MainWindow : Window
 
     private async void CompactModeButton_OnClick(object? sender, RoutedEventArgs eventArgs)
     {
-        if (_compactModeTransitionInProgress ||
+        if (_isObsDockLayout || _compactModeTransitionInProgress ||
             DataContext is not MainWindowViewModel viewModel)
         {
             return;
@@ -2126,6 +2132,15 @@ public partial class MainWindow : Window
 
     private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs eventArgs)
     {
+        if (eventArgs.Property == ActualThemeVariantProperty)
+        {
+            if (DataContext is MainWindowViewModel themeViewModel)
+            {
+                themeViewModel.UpdateActualTheme(ActualThemeVariant == ThemeVariant.Light);
+            }
+            return;
+        }
+
         if (eventArgs.Property != WindowStateProperty)
         {
             return;
@@ -2239,6 +2254,7 @@ public partial class MainWindow : Window
             return;
         }
         HandleModalFocusPropertyChanged(viewModel, eventArgs.PropertyName);
+        UpdateDockToolbarInteractivity();
         if (eventArgs.PropertyName == nameof(MainWindowViewModel.SelectedSettingsSection))
             SettingsContentScrollViewer.Offset = default;
         if (eventArgs.PropertyName == nameof(MainWindowViewModel.IsSettingsOpen) && viewModel.IsSettingsOpen)
@@ -2534,13 +2550,13 @@ public partial class MainWindow : Window
         }
 
         var layoutOrigin = ChatLayoutRoot.TranslatePoint(new Point(), this);
-        var headerBottom = HeaderPanel.TranslatePoint(
-            new Point(0, HeaderPanel.Bounds.Height),
-            this);
-        var left = Math.Max(12, Math.Ceiling(layoutOrigin?.X ?? 16));
-        var top = Math.Max(54, Math.Ceiling((headerBottom?.Y ?? 128) + 8));
-        ChannelEditorCard.Width = Math.Min(330, Math.Max(240, Bounds.Width - left - 16));
-        ChannelEditorCard.MaxHeight = Math.Max(160, Bounds.Height - top - 16);
+        var caption = HeaderPanel.IsVisible ? (Control)HeaderPanel :
+            ObsDockToolbar.IsVisible ? ObsDockToolbar : TitleBarPanel;
+        var headerBottom = caption.TranslatePoint(new Point(0, caption.Bounds.Height), this);
+        var left = Math.Max(8, Math.Ceiling(layoutOrigin?.X ?? 16));
+        var top = Math.Max(8, Math.Ceiling((headerBottom?.Y ?? 42) + 8));
+        ChannelEditorCard.Width = Math.Min(330, Math.Max(1, Bounds.Width - left - 8));
+        ChannelEditorCard.MaxHeight = Math.Max(1, Bounds.Height - top - 8);
         ChannelEditorCard.Margin = new Thickness(left, top, 0, 0);
     }
 
@@ -2570,6 +2586,15 @@ public partial class MainWindow : Window
         // Keep every tutorial action available in narrow windows without
         // squeezing the labels into a single footer row.
         var narrowActions = cardWidth < 400;
+        OnboardingScrollableBody.Margin = narrowActions ? new Thickness(16, 12, 16, 0) : new Thickness(26, 22, 26, 0);
+        OnboardingScrollableBody.Spacing = narrowActions ? 10 : 17;
+        OnboardingFixedFooter.Margin = narrowActions ? new Thickness(16, 8, 16, 10) : new Thickness(26, 17, 26, 24);
+        OnboardingFixedFooter.Spacing = narrowActions ? 8 : 17;
+        OnboardingTitleText.FontSize = narrowActions ? 20 : 25;
+        OnboardingTitleText.LineHeight = narrowActions ? 24 : 30;
+        var shortTutorial = narrowActions && maximumCardHeight < 320;
+        OnboardingGuideHeader.IsVisible = !shortTutorial;
+        OnboardingShortProgress.IsVisible = shortTutorial;
         OnboardingActionsPanel.ColumnDefinitions = new ColumnDefinitions(
             narrowActions ? "*,10,*" : "Auto,*,Auto,10,Auto");
         OnboardingActionsPanel.RowDefinitions = new RowDefinitions(
@@ -2672,7 +2697,9 @@ public partial class MainWindow : Window
             4 => OnboardingComposerPreview,
             5 => HeaderToolsPanel,
             6 => LogViewerSidebar,
-            7 => OverlaySettingsCard,
+            7 => CopyOverlayUrlButton,
+            10 => ObsPluginStatusText,
+            11 => ObsPluginHelpButton,
             8 => SettingsNavigationCard,
             9 => CompactModeButton,
             _ => null
@@ -2704,7 +2731,7 @@ public partial class MainWindow : Window
             origin.Value.Y - padding,
             target.Bounds.Width + padding * 2,
             target.Bounds.Height + padding * 2);
-        if (step == 7 &&
+        if (step is 7 or 10 or 11 &&
             SettingsContentScrollViewer.TranslatePoint(new Point(), this) is { } viewportOrigin)
         {
             var viewportRect = new Rect(viewportOrigin, SettingsContentScrollViewer.Viewport);
@@ -2718,9 +2745,7 @@ public partial class MainWindow : Window
             : null;
     }
 
-    private Rect? GetContextTutorialTargetRect(TutorialTopic topic, int step)
-    {
-        Control? target = topic switch
+    private Control? GetContextTutorialTargetControl(TutorialTopic topic, int step) => topic switch
         {
             TutorialTopic.Channels when step >= 2 => AddChannelButton,
             TutorialTopic.Channels => ChannelEditorCard,
@@ -2744,7 +2769,13 @@ public partial class MainWindow : Window
             TutorialTopic.Settings when step == 4 => CopyOverlayUrlButton,
             TutorialTopic.Settings when step == 5 => AccountSettingsCard,
             TutorialTopic.Settings when step == 6 => DonateSettingsCard,
+            TutorialTopic.Settings when step == 8 => ObsPluginStatusText,
+            TutorialTopic.Settings when step == 9 => ObsPluginHelpButton,
             TutorialTopic.Settings => AdvancedSettingsCard,
+            TutorialTopic.ObsPlugin when step == 0 => ObsPluginStatusText,
+            TutorialTopic.ObsPlugin when step == 1 => ObsPluginHelpButton,
+            TutorialTopic.ObsPlugin when step == 2 => RemoveObsPluginButton,
+            TutorialTopic.ObsPlugin => CopyOverlayUrlButton,
             TutorialTopic.Events when step == 0 => StreamEventsCard,
             TutorialTopic.Events => StreamEventFiltersPanel,
             TutorialTopic.Protection when step == 0 => ProtectionTwitchSettingsCard,
@@ -2755,8 +2786,9 @@ public partial class MainWindow : Window
             TutorialTopic.SmartChat => SmartChatFiltersPanel,
             _ => null
         };
-        return GetVisibleTutorialTargetRect(target, padding: 6);
-    }
+
+    private Rect? GetContextTutorialTargetRect(TutorialTopic topic, int step) =>
+        GetVisibleTutorialTargetRect(GetContextTutorialTargetControl(topic, step), padding: 6);
 
     private Control? GetContextTutorialHelpButton(TutorialTopic topic) => topic switch
     {
@@ -2765,6 +2797,7 @@ public partial class MainWindow : Window
         TutorialTopic.Moderation => ModerationHelpButton,
         TutorialTopic.Connect => ConnectHelpButton,
         TutorialTopic.Settings => SettingsHelpButton,
+        TutorialTopic.ObsPlugin => ObsPluginHelpButton,
         TutorialTopic.Events => EventsHelpButton,
         TutorialTopic.Protection => ProtectionHelpButton,
         TutorialTopic.Moments => MomentsHelpButton,
@@ -3000,6 +3033,7 @@ public partial class MainWindow : Window
     {
         var version = ++_onboardingStepTransitionVersion;
         var isContextTutorial = DataContext is MainWindowViewModel { IsContextTutorial: true };
+        QueueTutorialTargetVisibility(step, version);
         AnimateOnboardingText(reduceMotion);
         _onboardingFocusUpdatePending = true;
         OnboardingCard.RenderTransformOrigin = RelativePoint.Center;
@@ -4203,6 +4237,7 @@ public partial class MainWindow : Window
         }
 
         eventArgs.Cancel = true;
+        if (_isObsDockLayout) { Hide(); return; }
         if (_closeAnimationInProgress)
         {
             return;

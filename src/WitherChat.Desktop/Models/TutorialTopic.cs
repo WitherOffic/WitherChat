@@ -13,5 +13,6 @@ public enum TutorialTopic
     Events,
     Protection,
     Moments,
-    SmartChat
+    SmartChat,
+    ObsPlugin
 }

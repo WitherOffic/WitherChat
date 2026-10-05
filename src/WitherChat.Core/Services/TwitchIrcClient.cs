@@ -27,6 +27,8 @@ public sealed partial class TwitchIrcClient : IWitherChatClient
 
     private readonly Func<string, TaskCompletionSource, CancellationToken, Task>? _connectionRunner;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly object _channelsSync = new();
     private readonly HashSet<string> _channels = new(StringComparer.OrdinalIgnoreCase);
@@ -71,6 +73,7 @@ public sealed partial class TwitchIrcClient : IWitherChatClient
         await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
             await StopRunLoopAsync().ConfigureAwait(false);
             _currentChannel = normalizedChannel;
             lock (_channelsSync)
@@ -120,6 +123,7 @@ public sealed partial class TwitchIrcClient : IWitherChatClient
         await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
             bool added;
             lock (_channelsSync)
             {
@@ -147,10 +151,12 @@ public sealed partial class TwitchIrcClient : IWitherChatClient
 
     public async Task PartChannelAsync(string channel, CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
         var normalizedChannel = NormalizeChannel(channel);
         await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
             bool connected;
             lock (_channelsSync)
             {
@@ -202,19 +208,47 @@ public sealed partial class TwitchIrcClient : IWitherChatClient
         }
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (_disposed)
+        lock (_disposeGate)
         {
-            return;
+            if (_disposeTask is null)
+            {
+                var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = completion.Task;
+                _ = CompleteDisposeAsync(completion);
+            }
+            return new ValueTask(_disposeTask);
         }
+    }
 
-        _disposed = true;
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031",
+        Justification = "Cleanup exceptions are propagated to every caller through the shared completion task.")]
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            completion.TrySetResult();
+        }
+        catch (OperationCanceledException exception)
+        {
+            completion.TrySetCanceled(exception.CancellationToken);
+        }
+        catch (Exception exception)
+        {
+            completion.TrySetException(exception);
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        Volatile.Write(ref _disposed, true);
         await DisconnectAsync().ConfigureAwait(false);
         _writer?.Dispose();
         _tcpClient?.Dispose();
-        _lifecycleLock.Dispose();
-        _writeLock.Dispose();
+        // Keep managed gates available for already-queued callers to observe
+        // the disposed-state guard. No AvailableWaitHandle is allocated.
     }
 
     [SuppressMessage(

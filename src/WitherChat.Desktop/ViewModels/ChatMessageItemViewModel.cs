@@ -48,7 +48,7 @@ public sealed partial class ChatMessageItemViewModel : ViewModelBase
             _enableTwitchEmotes = owner.EnableTwitchEmotes;
             _enableBttvEmotes = owner.EnableBttvEmotes;
             _enableSevenTvEmotes = owner.EnableSevenTvEmotes;
-            _useLightTwitchTheme = string.Equals(owner.Theme, "Light", StringComparison.Ordinal);
+            _useLightTwitchTheme = owner.UseLightMessageTheme;
         }
         UserBrush = ChatUserColor.Create(message.UserColor, _useLightTwitchTheme);
     }

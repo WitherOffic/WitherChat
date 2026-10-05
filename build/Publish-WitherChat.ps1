@@ -3,8 +3,8 @@ param(
     [ValidateSet('all', 'windows', 'linux', 'macos')]
     [string]$Platform = 'all',
 
-    [ValidatePattern('^\d+\.\d+\.\d+(?:A)?$')]
-    [string]$Version = '0.5.1A',
+    [ValidatePattern('^\d+\.\d+(?:\.\d+)?(?:A)?$')]
+    [string]$Version = '0.6',
 
     [ValidateSet('all', 'x64', 'arm64')]
     [string]$WindowsArchitecture = 'all',
@@ -17,6 +17,7 @@ $ErrorActionPreference = 'Stop'
 $env:AVALONIA_TELEMETRY_OPTOUT = '1'
 $runningOnWindows = $env:OS -eq 'Windows_NT'
 $numericVersionText = $Version -replace 'A$', ''
+if (($numericVersionText -split '\.').Count -eq 2) { $numericVersionText += '.0' }
 $numericVersion = [version]$numericVersionText
 $packageVersion = if ($Version.EndsWith('A', [StringComparison]::Ordinal))
 {

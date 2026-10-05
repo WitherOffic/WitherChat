@@ -17,10 +17,10 @@
     <Title>WitherChat</Title>
     <Copyright>WitherChat</Copyright>
     <Description>Cross-platform Twitch and YouTube live chat for Windows, Linux and macOS.</Description>
-    <Version>0.5.1-alpha</Version>
-    <FileVersion>0.5.1.0</FileVersion>
-    <AssemblyVersion>0.5.1.0</AssemblyVersion>
-    <InformationalVersion>0.5.1A</InformationalVersion>
+    <Version>0.6.0</Version>
+    <FileVersion>0.6.0.0</FileVersion>
+    <AssemblyVersion>0.6.0.0</AssemblyVersion>
+    <InformationalVersion>0.6</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <Deterministic>true</Deterministic>
@@ -34,7 +34,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\ObsPlugin\**" />
+    <EmbeddedResource Include="Assets\ObsPlugin\windows-x64.zip" LogicalName="WitherChat.ObsPlugin.WindowsX64.zip" />
     <EmbeddedResource Include="..\..\LICENSE" LogicalName="WitherChat.LICENSE" />
     <AvaloniaResource Include="..\WitherChat\Assets\Fonts\Inter-Variable.ttf"
                       Link="Assets\Fonts\Inter-Variable.ttf" />

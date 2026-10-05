@@ -72,8 +72,9 @@ public sealed partial class MainWindowLayoutTests
             AssertWithinWindow(button);
             var point = button.TranslatePoint(new Point(button.Bounds.Width / 2,
                 button.Bounds.Height / 2), window)!.Value;
-            var scrollOrigin = scroll.TranslatePoint(default, window)!.Value;
-            Assert.True(point.Y >= scrollOrigin.Y && point.Y <= scrollOrigin.Y + scroll.Bounds.Height);
+            var footer = window.FindControl<StackPanel>("OnboardingFixedFooter")!;
+            var footerOrigin = footer.TranslatePoint(default, window)!.Value;
+            Assert.True(point.Y >= footerOrigin.Y && point.Y <= footerOrigin.Y + footer.Bounds.Height);
             ClickAtCenter(window, button);
             await SettleAsync();
         }

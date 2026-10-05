@@ -23,7 +23,9 @@ public sealed class CompactLoadingBar : Control
         AvaloniaProperty.Register<CompactLoadingBar, bool>(nameof(ReduceMotion));
 
     private bool _frameScheduled;
+    private int _frameGeneration;
     private TimeSpan _animationTime;
+    private readonly List<Visual> _visibilityAncestors = [];
 
     public IBrush? BackgroundBrush
     {
@@ -119,18 +121,32 @@ public sealed class CompactLoadingBar : Control
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs eventArgs)
     {
         base.OnAttachedToVisualTree(eventArgs);
+        foreach (var ancestor in this.GetVisualAncestors())
+        {
+            _visibilityAncestors.Add(ancestor);
+            ancestor.PropertyChanged += OnAncestorVisibilityChanged;
+        }
         ScheduleFrame();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs eventArgs)
     {
+        foreach (var ancestor in _visibilityAncestors)
+            ancestor.PropertyChanged -= OnAncestorVisibilityChanged;
+        _visibilityAncestors.Clear();
+        _frameGeneration++;
         _frameScheduled = false;
         base.OnDetachedFromVisualTree(eventArgs);
     }
 
+    private void OnAncestorVisibilityChanged(object? sender, AvaloniaPropertyChangedEventArgs change)
+    {
+        if (change.Property == IsVisibleProperty && IsEffectivelyVisible) ScheduleFrame();
+    }
+
     private void ScheduleFrame()
     {
-        if (_frameScheduled || !IsVisible || ReduceMotion)
+        if (_frameScheduled || !IsEffectivelyVisible || ReduceMotion)
         {
             return;
         }
@@ -142,17 +158,22 @@ public sealed class CompactLoadingBar : Control
         }
 
         _frameScheduled = true;
-        topLevel.RequestAnimationFrame(renderingTime =>
-        {
-            _frameScheduled = false;
-            if (!IsVisible || TopLevel.GetTopLevel(this) is null)
-            {
-                return;
-            }
+        var generation = _frameGeneration;
+        topLevel.RequestAnimationFrame(renderingTime => OnAnimationFrame(generation, renderingTime));
+    }
 
-            _animationTime = renderingTime;
-            InvalidateVisual();
-            ScheduleFrame();
-        });
+    private void OnAnimationFrame(int generation, TimeSpan renderingTime)
+    {
+        // A callback from a previous owner must not restart or duplicate the new loop.
+        if (generation != _frameGeneration) return;
+        _frameScheduled = false;
+        if (!IsEffectivelyVisible || TopLevel.GetTopLevel(this) is null)
+        {
+            return;
+        }
+
+        _animationTime = renderingTime;
+        InvalidateVisual();
+        ScheduleFrame();
     }
 }

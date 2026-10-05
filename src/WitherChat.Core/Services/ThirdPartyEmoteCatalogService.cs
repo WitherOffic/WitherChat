@@ -187,6 +187,22 @@ public sealed class ThirdPartyEmoteCatalogService : IDisposable
 
     private async Task<JsonDocument?> TryGetJsonAsync(string uri, CancellationToken cancellationToken)
     {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(_httpClient.Timeout);
+        try
+        {
+            // ResponseHeadersRead ends HttpClient's timeout after headers; keep the
+            // provider deadline active while downloading and parsing the bounded body.
+            return await DownloadJsonAsync(uri, deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new HttpRequestException("The third-party emote provider timed out.", exception);
+        }
+    }
+
+    private async Task<JsonDocument?> DownloadJsonAsync(string uri, CancellationToken cancellationToken)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         using var response = await _httpClient.SendAsync(
             request,

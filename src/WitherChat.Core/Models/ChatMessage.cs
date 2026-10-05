@@ -37,7 +37,7 @@ public sealed record ChatMessage
     public string TimeText => Timestamp.LocalDateTime.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
     public string AvatarInitial => string.IsNullOrWhiteSpace(UserLabel)
         ? "?"
-        : UserLabel.Trim()[0].ToString().ToUpperInvariant();
+        : StringInfo.GetNextTextElement(UserLabel.Trim()).ToUpperInvariant();
     public bool HasReply => !string.IsNullOrWhiteSpace(ReplyParentDisplayName) ||
                             !string.IsNullOrWhiteSpace(ReplyParentText);
     public bool IsLong => Text.Length > 320 || Text.Count(character => character == '\n') >= 5;

@@ -14,14 +14,14 @@ WitherChat — настольный чат Twitch и YouTube для Windows, Lin
 сборки и могут блокироваться Smart App Control. Не отключайте защиту Windows
 и не устанавливайте самоподписанный корневой сертификат ради этой сборки.
 
-Текущая экспериментальная версия для всех платформ: **0.5.1A**. Предыдущая
+Текущая версия приложения: **0.6**. Готовый публичный релиз — Windows x64; плагин OBS проверен с OBS 32.2.2 / Qt 6.11.1. Предыдущая
 стабильная кроссплатформенная сборка 0.4.0A хранится отдельно и не
 перезаписывается.
 
 Кроссплатформенная ветка переноса синхронизирована с публичным релизом
 [`v0.3.3`](https://github.com/WitherOffic/WitherChat/releases/tag/v0.3.3).
 Стабильный WPF-клиент 0.3.3 сохранён без смены технологии, а общий клиент
-0.5.1A работает на .NET 8 и Avalonia. `global.json` задаёт минимальную
+0.6 работает на .NET 8 и Avalonia. `global.json` задаёт минимальную
 проверенную SDK 9.0.316 и принимает более новый security-patch той же линейки;
 CI использует SDK 9.0.317. Готовые пакеты включают .NET 8.0.30 и не требуют
 отдельной установки .NET.
@@ -83,13 +83,13 @@ dotnet build WitherChat.Windows.sln -c Release --no-restore
 ## Упаковка
 
 ```powershell
-./build/Publish-WitherChat.ps1 -Platform all -Version 0.5.1A
+./build/Publish-WitherChat.ps1 -Platform all -Version 0.6
 ```
 
 Только Windows x64:
 
 ```powershell
-./build/Publish-WitherChat.ps1 -Platform windows -WindowsArchitecture x64 -Version 0.5.1A
+./build/Publish-WitherChat.ps1 -Platform windows -WindowsArchitecture x64 -Version 0.6
 ```
 
 Поддерживаемые runtime identifiers:
@@ -98,7 +98,7 @@ dotnet build WitherChat.Windows.sln -c Release --no-restore
 - Linux: `linux-x64`, `linux-arm64`;
 - macOS: `osx-x64`, `osx-arm64`.
 
-Пакеты создаются в `artifacts/WitherChat/<platform>/current/0.5.1A`.
+Пакеты создаются в `artifacts/WitherChat/<platform>/current/0.6`.
 Публичная Windows x64 сборка готовится в GitHub Actions через
 `.github/workflows/windows-release.yml`. Остальные платформы остаются
 экспериментальными; этот процесс не заявляет проверку всех их интерфейсов.

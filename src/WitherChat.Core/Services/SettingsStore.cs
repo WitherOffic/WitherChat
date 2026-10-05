@@ -4,7 +4,7 @@ using WitherChat.Core.Models;
 
 namespace WitherChat.Core.Services;
 
-public sealed class SettingsStore(AppDataPaths paths) : IDisposable
+public sealed class SettingsStore(AppDataPaths paths) : IDisposable, IAsyncDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -12,13 +12,16 @@ public sealed class SettingsStore(AppDataPaths paths) : IDisposable
     };
 
     private readonly SemaphoreSlim _saveLock = new(1, 1);
+    private readonly object _lifetimeGate = new();
+    private readonly TaskCompletionSource _savesDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _pendingSaves;
     private readonly AppDataPaths _paths = paths ?? throw new ArgumentNullException(nameof(paths));
     private bool _savesBlockedAfterLoadFailure;
     private bool _disposed;
 
     public WitherChatSettings Load()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
         _paths.EnsureCreated();
         if (!File.Exists(_paths.SettingsFile))
         {
@@ -33,7 +36,9 @@ public sealed class SettingsStore(AppDataPaths paths) : IDisposable
 
         try
         {
-            return ReadSettingsFile(_paths.SettingsFile);
+            var settings = ReadSettingsFile(_paths.SettingsFile);
+            _savesBlockedAfterLoadFailure = false;
+            return settings;
         }
         catch (Exception exception) when (exception is JsonException or InvalidDataException)
         {
@@ -180,18 +185,24 @@ public sealed class SettingsStore(AppDataPaths paths) : IDisposable
 
     public async Task SaveAsync(WitherChatSettings settings, CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(settings);
-        if (_savesBlockedAfterLoadFailure)
+        lock (_lifetimeGate)
         {
-            throw new IOException(
-                "Settings were not saved because the existing settings file could not be read or preserved.");
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _pendingSaves++;
         }
-        settings.Normalize();
-        _paths.EnsureCreated();
-        await _saveLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var gateHeld = false;
         try
         {
+            if (_savesBlockedAfterLoadFailure)
+            {
+                throw new IOException(
+                    "Settings were not saved because the existing settings file could not be read or preserved.");
+            }
+            settings.Normalize();
+            _paths.EnsureCreated();
+            await _saveLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            gateHeld = true;
             var temporaryFile = _paths.SettingsFile + ".tmp";
             try
             {
@@ -215,7 +226,15 @@ public sealed class SettingsStore(AppDataPaths paths) : IDisposable
         }
         finally
         {
-            _saveLock.Release();
+            if (gateHeld) _saveLock.Release();
+            lock (_lifetimeGate)
+            {
+                if (--_pendingSaves == 0 && _disposed)
+                {
+                    _saveLock.Dispose();
+                    _savesDrained.TrySetResult();
+                }
+            }
         }
     }
 
@@ -232,13 +251,24 @@ public sealed class SettingsStore(AppDataPaths paths) : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
+        lock (_lifetimeGate)
         {
-            return;
+            if (_disposed) return;
+            _disposed = true;
+            // Accepted saves keep ownership of their gate until they finish.
+            // Synchronous disposal must never block the UI or strand queued writers.
+            if (_pendingSaves == 0)
+            {
+                _saveLock.Dispose();
+                _savesDrained.TrySetResult();
+            }
         }
+    }
 
-        _disposed = true;
-        _saveLock.Dispose();
+    public ValueTask DisposeAsync()
+    {
+        Dispose();
+        return new ValueTask(_savesDrained.Task);
     }
 
     private sealed class LegacySettings

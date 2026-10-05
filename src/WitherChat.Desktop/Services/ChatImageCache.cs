@@ -56,6 +56,14 @@ public sealed class ChatImageCache : IDisposable
 {
     private const int MaximumEntries = 1_024;
     private const int MaximumResponseBytes = 8 * 1024 * 1024;
+    internal const long MaximumDecodedBytes = 64L * 1024 * 1024;
+    private readonly long _maximumDecodedBytes;
+    private long _cachedDecodedBytes;
+
+    internal long CachedDecodedBytes
+    {
+        get { lock (_entryGate) return _cachedDecodedBytes; }
+    }
     private const double DisplayHeight = 28;
     private readonly HttpClient _httpClient;
     private readonly TimeSpan _downloadTimeout;
@@ -80,8 +88,12 @@ public sealed class ChatImageCache : IDisposable
     {
     }
 
-    internal ChatImageCache(HttpMessageHandler? handler, TimeSpan downloadTimeout)
+    internal ChatImageCache(HttpMessageHandler? handler, TimeSpan downloadTimeout,
+        long maximumDecodedBytes = MaximumDecodedBytes)
     {
+        if (maximumDecodedBytes <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumDecodedBytes));
+        _maximumDecodedBytes = maximumDecodedBytes;
         if (downloadTimeout <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(downloadTimeout));
@@ -112,6 +124,7 @@ public sealed class ChatImageCache : IDisposable
         ChatImageResource resource;
         lock (_entryGate)
         {
+            if (_disposed) return null;
             if (_entries.TryGetValue(imageUrl, out var existing))
             {
                 _accessOrder[imageUrl] = ++_accessSequence;
@@ -119,6 +132,11 @@ public sealed class ChatImageCache : IDisposable
                 if (_retryableEntries.Remove(imageUrl) && _loadingEntries.Add(imageUrl))
                 {
                     BeginLoad();
+                    if (_disposed)
+                    {
+                        EndLoad();
+                        return null;
+                    }
                     _loadTasks[imageUrl] = Task.Run(() => PopulateAsync(imageUri, existing));
                 }
                 return existing;
@@ -126,26 +144,7 @@ public sealed class ChatImageCache : IDisposable
 
             while (_entries.Count >= MaximumEntries)
             {
-                string? evictedUrl = null;
-                var oldestAccess = long.MaxValue;
-                foreach (var entry in _accessOrder)
-                {
-                    if (!_loadingEntries.Contains(entry.Key) && entry.Value < oldestAccess)
-                    {
-                        evictedUrl = entry.Key;
-                        oldestAccess = entry.Value;
-                    }
-                }
-                if (evictedUrl is null)
-                {
-                    return null;
-                }
-
-                _entries.TryRemove(evictedUrl, out _);
-                _accessOrder.Remove(evictedUrl);
-                // Do not dispose here: a currently visible message can still own
-                // the resource. Once that UI reference is released, its bitmap is
-                // collected normally; the cache itself remains strictly bounded.
+                if (!EvictOldestCompletedEntry()) return null;
             }
 
             resource = new ChatImageResource(fallbackWidth);
@@ -153,6 +152,11 @@ public sealed class ChatImageCache : IDisposable
             _accessOrder[imageUrl] = ++_accessSequence;
             _loadingEntries.Add(imageUrl);
             BeginLoad();
+            if (_disposed)
+            {
+                EndLoad();
+                return null;
+            }
             _loadTasks[imageUrl] = Task.Run(() => PopulateAsync(imageUri, resource));
         }
         return resource;
@@ -183,26 +187,23 @@ public sealed class ChatImageCache : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        _lifetime.Cancel();
-        foreach (var resource in _entries.Values)
-        {
-            resource.Media?.Dispose();
-        }
-
-        _entries.Clear();
-        _loadTasks.Clear();
+        ChatImageResource[] resources;
         lock (_entryGate)
         {
+            if (_disposed) return;
+            Volatile.Write(ref _disposed, true);
+            resources = _entries.Values.ToArray();
+            _entries.Clear();
+            _loadTasks.Clear();
             _accessOrder.Clear();
             _loadingEntries.Clear();
             _retryableEntries.Clear();
+            _cachedDecodedBytes = 0;
         }
+
+        // Do not invoke cancellation callbacks while holding the admission lock.
+        _lifetime.Cancel();
+        foreach (var resource in resources) resource.Media?.Dispose();
         _httpClient.Dispose();
         _lifetime.Dispose();
     }
@@ -210,8 +211,14 @@ public sealed class ChatImageCache : IDisposable
     private async Task PopulateAsync(Uri imageUri, ChatImageResource resource)
     {
         var retryable = false;
+        var gateTaken = false;
         try
         {
+            // A slot covers decoding AND UI publication, not only HTTP. If the
+            // UI is busy, at most eight decoded media objects can wait for it.
+            var lifetimeToken = _lifetime.Token;
+            await _downloadGate.WaitAsync(lifetimeToken).ConfigureAwait(false);
+            gateTaken = true;
             var imageUrl = imageUri.AbsoluteUri;
             var (media, isTransientFailure) = await LoadMediaAsync(imageUri).ConfigureAwait(false);
             if (media is null)
@@ -226,14 +233,34 @@ public sealed class ChatImageCache : IDisposable
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    if (_disposed || !_entries.TryGetValue(imageUrl, out var current) || !ReferenceEquals(current, resource))
+                    lock (_entryGate)
                     {
-                        media.Dispose();
-                        return;
-                    }
+                        if (_disposed || !_entries.TryGetValue(imageUrl, out var current) ||
+                            !ReferenceEquals(current, resource) || media.DecodedByteCount > _maximumDecodedBytes)
+                        {
+                            media.Dispose();
+                            return;
+                        }
 
-                    resource.SetMedia(media, DisplayHeight);
-                });
+                        while (_cachedDecodedBytes + media.DecodedByteCount > _maximumDecodedBytes)
+                        {
+                            if (!EvictOldestCompletedEntry())
+                            {
+                                // All potential victims still have a load in flight.
+                                // Do not overshoot the budget; allow a later request
+                                // to retry after those publications have finished.
+                                retryable = true;
+                                media.Dispose();
+                                return;
+                            }
+                        }
+
+                        _cachedDecodedBytes += media.DecodedByteCount;
+                        resource.SetMedia(media, DisplayHeight);
+                        // A property observer may synchronously close the cache.
+                        if (_disposed) media.Dispose();
+                    }
+                }, DispatcherPriority.Normal, lifetimeToken);
             }
             catch (Exception exception) when (
                 exception is OperationCanceledException or InvalidOperationException && _disposed)
@@ -241,8 +268,14 @@ public sealed class ChatImageCache : IDisposable
                 media.Dispose();
             }
         }
+        catch (Exception exception) when (_disposed &&
+            exception is OperationCanceledException or ObjectDisposedException)
+        {
+            // Cancellation may happen while queued for a decode/publication slot.
+        }
         finally
         {
+            if (gateTaken) _downloadGate.Release();
             var imageUrl = imageUri.AbsoluteUri;
             lock (_entryGate)
             {
@@ -265,6 +298,31 @@ public sealed class ChatImageCache : IDisposable
 
             EndLoad();
         }
+    }
+
+    // Caller holds _entryGate. Never evict in-flight entries: their finally
+    // blocks still own the URL's task/retry bookkeeping.
+    private bool EvictOldestCompletedEntry()
+    {
+        string? evictedUrl = null;
+        var oldestAccess = long.MaxValue;
+        foreach (var entry in _accessOrder)
+        {
+            if (!_loadingEntries.Contains(entry.Key) && entry.Value < oldestAccess)
+            {
+                evictedUrl = entry.Key;
+                oldestAccess = entry.Value;
+            }
+        }
+        if (evictedUrl is null) return false;
+        if (_entries.TryRemove(evictedUrl, out var resource))
+            _cachedDecodedBytes -= resource.Media?.DecodedByteCount ?? 0;
+        _accessOrder.Remove(evictedUrl);
+        _retryableEntries.Remove(evictedUrl);
+        // A visible message can still own this resource. Do not dispose its
+        // frames under a live Image control; their existing native finalizers
+        // reclaim them once the last UI reference is released.
+        return true;
     }
 
     private void BeginLoad()
@@ -291,11 +349,8 @@ public sealed class ChatImageCache : IDisposable
 
     private async Task<(ChatImageMedia? Media, bool IsTransientFailure)> LoadMediaAsync(Uri imageUri)
     {
-        var gateTaken = false;
         try
         {
-            await _downloadGate.WaitAsync(_lifetime.Token).ConfigureAwait(false);
-            gateTaken = true;
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
             timeout.CancelAfter(_downloadTimeout);
             var downloadToken = timeout.Token;
@@ -330,7 +385,7 @@ public sealed class ChatImageCache : IDisposable
                 await buffer.WriteAsync(chunk.AsMemory(0, read), downloadToken).ConfigureAwait(false);
             }
 
-            return (ChatImageDecoder.Decode(buffer.GetBuffer().AsSpan(0, checked((int)buffer.Length))), false);
+            return (ChatImageDecoder.Decode(buffer.GetBuffer().AsSpan(0, checked((int)buffer.Length)), downloadToken), false);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
@@ -350,13 +405,6 @@ public sealed class ChatImageCache : IDisposable
                                            ArgumentException or NotSupportedException)
         {
             return (null, true);
-        }
-        finally
-        {
-            if (gateTaken)
-            {
-                _downloadGate.Release();
-            }
         }
     }
 

@@ -4,7 +4,7 @@ using WitherChat.Desktop.Models;
 
 namespace WitherChat.Desktop.Services;
 
-public sealed class UiText : ObservableObject
+public sealed partial class UiText : ObservableObject
 {
     private bool _english;
 
@@ -467,6 +467,12 @@ public sealed class UiText : ObservableObject
         (TutorialTopic.Connect, 0) => Pick("Подключение Twitch", "Connect Twitch"),
         (TutorialTopic.Connect, 1) => Pick("Режим только для чтения", "Read-only mode"),
         (TutorialTopic.Connect, 2) => Pick("Отслеживаемые каналы", "Followed channels"),
+        (TutorialTopic.ObsPlugin, 0) => Pick("Плагин: статус и установка", "Plugin: status and installation"),
+        (TutorialTopic.ObsPlugin, 1) => Pick("Чат внутри OBS", "Chat inside OBS"),
+        (TutorialTopic.ObsPlugin, 2) => Pick("Обновить или удалить", "Update or remove"),
+        (TutorialTopic.ObsPlugin, 3) => Pick("Док и оверлей — разные задачи", "Dock and overlay serve different purposes"),
+        (TutorialTopic.Settings, 8) => Pick("Управление плагином OBS", "Manage the OBS plugin"),
+        (TutorialTopic.Settings, 9) => Pick("Док или оверлей?", "Dock or overlay?"),
         (TutorialTopic.Settings, 0) => Pick("Разделы настроек", "Settings sections"),
         (TutorialTopic.Settings, 1) => Pick("Поведение программы", "App behavior"),
         (TutorialTopic.Settings, 2) => Pick("Вид объединённого чата", "Combined chat appearance"),
@@ -540,6 +546,24 @@ public sealed class UiText : ObservableObject
         (TutorialTopic.Connect, 2) => Pick(
             "После входа вкладка отслеживаемых каналов показывает ваши подписки, live-статус и число зрителей.",
             "After sign-in, Followed channels shows your subscriptions, live state, and viewer count."),
+        (TutorialTopic.ObsPlugin, 0) => Pick(
+            "Статус показывает, установлен ли плагин и нужно ли обновление. Если OBS не найден, выберите его корневую папку. Закройте OBS и нажмите «Установить»; Windows может запросить права администратора.",
+            "Status shows whether the plugin is installed or needs an update. If OBS is not found, choose its root folder. Close OBS and select Install; Windows may request administrator permission."),
+        (TutorialTopic.ObsPlugin, 1) => Pick(
+            "В OBS откройте Сервис → WitherChat. Плагин сам запускает чат и встраивает его в док: отдельно открывать EXE не нужно. В маленькой панели инструменты, аккаунты и настройки доступны через меню.",
+            "In OBS, open Tools → WitherChat. The plugin launches the chat and embeds it in a dock; no separate EXE launch is needed. A small dock keeps tools, accounts, and settings in its menu."),
+        (TutorialTopic.ObsPlugin, 2) => Pick(
+            "Новый EXE предлагает обновить установленный плагин. «Удалить плагин» требует подтверждения и удаляет только известные файлы WitherChat и его служебные копии. Другие плагины, сцены, профили OBS и аккаунты чата сохраняются.",
+            "A new EXE can update the installed plugin. Remove plugin asks for confirmation and deletes only known WitherChat files and service copies. Other plugins, scenes, OBS profiles, and chat accounts are preserved."),
+        (TutorialTopic.ObsPlugin, 3) => Pick(
+            "Док — полноценный чат для работы внутри OBS: сообщения, модерация, логи и донаты. Оверлей — отображение сообщений зрителям через источник «Браузер»: включите его и скопируйте URL в источник сцены.",
+            "A dock is the full chat workspace inside OBS: messages, moderation, logs, and donations. An overlay displays messages to viewers through a Browser source: enable it and copy the URL into the scene source."),
+        (TutorialTopic.Settings, 8) => Pick(
+            "В блоке плагина видны статус, установка и обновление, выбор папки OBS и удаление с подтверждением. Для действий с файлами закройте OBS. Неизвестные файлы внутри папки плагина сохраняются.",
+            "The plugin card provides status, install/update, OBS folder selection, and confirmed removal. Close OBS before file operations. Unknown files inside the plugin folder are preserved."),
+        (TutorialTopic.Settings, 9) => Pick(
+            "Док запускается через Сервис → WitherChat в OBS и сохраняет функции приложения. Оверлей добавляется в сцену как источник «Браузер» и показывает сообщения зрителям. Это независимые варианты.",
+            "Open the dock through Tools → WitherChat in OBS for the full app. Add the overlay as a Browser scene source to display messages to viewers. These options are independent."),
         (TutorialTopic.Settings, 0) => Pick(
             "Навигация слева группирует программу, чат, логи, OBS, аккаунты, поддержку и дополнительные параметры.",
             "The left navigation groups app, chat, logs, OBS, accounts, support, and advanced settings."),
@@ -619,6 +643,9 @@ public sealed class UiText : ObservableObject
         (TutorialTopic.Logs, _) => Pick("Фильтры не изменяют исходный файл журнала.", "Filters never modify the original log file."),
         (TutorialTopic.Moderation, _) => Pick("Обучение ничего не отправляет в Twitch или YouTube и не выполняет действий над зрителями.", "The guide sends nothing to Twitch or YouTube and performs no viewer actions."),
         (TutorialTopic.Connect, _) => Pick("Авторизация всегда открывается на официальном сайте Twitch.", "Authorization always opens on the official Twitch site."),
+        (TutorialTopic.ObsPlugin, 2) => Pick("Если чат запущен из папки плагина, для удаления откройте отдельный EXE вне OBS.", "If the chat runs from the plugin folder, use a standalone EXE outside OBS to remove it."),
+        (TutorialTopic.ObsPlugin, _) => Pick("Обучение не устанавливает, не обновляет и не удаляет плагин.", "This guide does not install, update, or remove the plugin."),
+        (TutorialTopic.Settings, 8 or 9) => Pick("Отмена настроек не отменяет уже выполненную установку или удаление плагина.", "Settings Cancel does not undo a completed plugin installation or removal."),
         (TutorialTopic.Settings, 4) => Pick("Проверьте результат кнопкой тестового сообщения до начала эфира.", "Use the test-message button before going live."),
         (TutorialTopic.Settings, _) => Pick("Изменения можно сохранить или отменить внизу окна.", "Save or cancel changes at the bottom of the window."),
         (TutorialTopic.Donations, 2) => Pick("Повторные быстрые клики не создают дубли в очереди.", "Repeated rapid clicks do not create queue duplicates."),
@@ -642,14 +669,17 @@ public sealed class UiText : ObservableObject
         6 => Pick("Логи и история чата", "Chat logs and history"),
         7 => Pick("Чат в OBS без захвата окна", "Chat in OBS without window capture"),
         8 => Pick("Настройки под ваш стиль", "Settings that fit your style"),
-        _ => Pick("Компактный режим", "Compact mode")
+        9 => Pick("Компактный режим", "Compact mode"),
+        10 => Pick("Управление плагином OBS", "Manage the OBS plugin"),
+        11 => Pick("Полный чат в доке OBS", "Full chat in an OBS dock"),
+        _ => string.Empty
     };
 
     public string OnboardingDescription(int step) => step switch
     {
         0 => Pick(
-            "Короткое интерактивное обучение познакомит вас с каналами, чатом, событиями эфира, логами, OBS-оверлеем, модерацией и настройками. Подробные подсказки открываются кнопкой ? в каждой сложной панели.",
-            "This short interactive tutorial introduces channels, chat, stream events, logs, the OBS overlay, moderation, and settings. Use ? in every advanced panel for its detailed guide."),
+            "Обучение познакомит вас с чатом Twitch и YouTube, модерацией, событиями, моментами, логами, донатами, компактным режимом и плагином OBS. Подробные подсказки открываются кнопкой ? в каждой сложной панели.",
+            "This guide introduces Twitch and YouTube chat, moderation, events, moments, logs, donations, compact mode, and the OBS plugin. Use ? in every advanced panel for its detailed guide."),
         1 => Pick(
             "Верхняя панель показывает подключённый Twitch-аккаунт, активный канал, состояние API и чата, статус эфира и количество зрителей.",
             "The header shows your Twitch account, active channel, API and chat connection, live status, and viewer count."),
@@ -657,14 +687,14 @@ public sealed class UiText : ObservableObject
             "Нажмите на профиль, чтобы открыть список каналов. Можно держать подключёнными до трёх каналов, быстро переключаться между ними и удалять добавленные для просмотра.",
             "Select the profile to open your channel list. Keep up to three channels connected, switch instantly, and remove channels added for viewing."),
         3 => Pick(
-            "Здесь появляются сообщения, бейджи, эмодзи Twitch, BetterTTV и 7TV. Закреплённое сообщение всегда остаётся над чатом, а контекстное меню открывается правой кнопкой.",
-            "Messages, badges, and Twitch, BetterTTV, and 7TV emotes appear here. The pinned message stays above chat, and right-click opens the context menu."),
+            "Здесь появляются сообщения Twitch и YouTube, значки и эмоты. ПКМ по сообщению открывает ответ, последние сообщения зрителя, сохранение момента и доступные действия модерации. Закреплённое сообщение остаётся над лентой.",
+            "Twitch and YouTube messages, badges, and emotes appear here. Right-click for replies, recent viewer messages, saved moments, and available moderation actions. The pinned message stays above the feed."),
         4 => Pick(
             "Нижнее поле отправляет сообщения от вашего аккаунта. Если вы прокрутите чат вверх, автопрокрутка остановится; кнопка со стрелкой вернёт вас к новым сообщениям.",
             "The composer sends messages from your account. Scrolling up pauses auto-follow; the arrow button returns you to the latest messages."),
         5 => Pick(
-            "Справа находятся события эфира, моменты, защита, логи, донаты, модерация, поиск, переподключение и настройки. Состав инструментов меняется в зависимости от аккаунта и прав на канале.",
-            "The right side contains stream events, moments, protection, logs, donations, moderation, search, reconnect, and settings. Available tools adapt to your account and channel permissions."),
+            "Инструменты открывают события эфира, сохранённые моменты с заметками, защиту от спама, логи, донаты и модерацию. Умные фильтры выделяют вопросы, упоминания и платные события без удаления исходной ленты. Доступные действия зависят от аккаунта и прав.",
+            "Tools open stream events, saved moments with notes, anti-spam protection, logs, donations, and moderation. Smart filters focus questions, mentions, and paid events without deleting the original feed. Available actions depend on your account and permissions."),
         6 => Pick(
             "При включённой записи WitherChat сохраняет сообщения по дням и каналам. В окне логов можно искать текст и пользователей, фильтровать роли, открывать папку хранения и экспортировать историю в TXT или JSONL.",
             "When logging is enabled, WitherChat stores messages by day and channel. The log viewer can search text and users, filter roles, open the storage folder, and export history as TXT or JSONL."),
@@ -674,9 +704,16 @@ public sealed class UiText : ObservableObject
         8 => Pick(
             "Разделы сгруппированы по задачам: программа, чат, журналы, OBS-оверлей, аккаунты Twitch, YouTube и DonationAlerts, поддержка и дополнительные параметры. Нажимать можно по всей строке раздела.",
             "Sections are grouped by task: app, chat, logs, OBS overlay, Twitch, YouTube and DonationAlerts accounts, support, and advanced options. The whole section row is clickable."),
-        _ => Pick(
+        10 => Pick(
+            "Статус плагина находится в Настройки → OBS-оверлей. Закройте OBS: здесь можно установить или обновить плагин, выбрать папку и удалить только файлы WitherChat с подтверждением. Профили, сцены и другие плагины OBS не меняются.",
+            "Plugin status is in Settings → OBS overlay. Close OBS: install/update the plugin, choose a folder, or confirm removal of only WitherChat files. OBS profiles, scenes, and other plugins are unchanged."),
+        11 => Pick(
+            "Откройте OBS → Сервис → WitherChat: плагин сам запустит полноценный чат в доке. Отдельный EXE запускать не обязательно. В маленьком доке кнопки собраны в меню, а аккаунт показывается короткой строкой. Сообщения, модерация, логи и донаты остаются доступны.",
+            "Open OBS → Tools → WitherChat: the plugin launches the full chat in a dock. No separate EXE launch is needed. A small dock groups buttons in its menu and shows account identity as a short line. Messages, moderation, logs, and donations remain available."),
+        9 => Pick(
             "Кнопка в строке заголовка переключает компактный режим — удобно держать чат поверх игры или на втором мониторе. Положение окна сохраняется при переключении.",
-            "The title-bar button toggles compact mode—ideal over a game or on a second monitor. The window stays in place when switching.")
+            "The title-bar button toggles compact mode—ideal over a game or on a second monitor. The window stays in place when switching."),
+        _ => string.Empty
     };
 
     public string OnboardingHint(int step) => step switch
@@ -708,6 +745,11 @@ public sealed class UiText : ObservableObject
         8 => Pick(
             "Изменения можно сохранить или отменить внизу окна.",
             "Save or cancel changes at the bottom of the window."),
+        9 => Pick("В мини-режиме время и лишние служебные подписи скрыты. Действия доступны через ПКМ по сообщению.", "Mini mode hides timestamps and extra service labels. Right-click a message for actions."),
+        10 => Pick("Установка и удаление — реальные действия. Само обучение их не выполняет.", "Install and remove are real actions. This guide never performs them."),
+        11 => Pick(
+            "Док нужен для управления чатом; оверлей «Браузер» — для показа сообщений в сцене. Это не одно и то же.",
+            "Use a dock to work with chat and a Browser overlay to display messages in a scene. They are different."),
         _ => Pick(
             "Готово — теперь WitherChat настроен для повседневной работы.",
             "All set—WitherChat is ready for everyday use.")

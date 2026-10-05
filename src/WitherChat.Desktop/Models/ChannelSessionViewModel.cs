@@ -12,7 +12,7 @@ public sealed partial class ChannelSessionViewModel(string login) : ObservableOb
     public bool HasViewerCount => IsLive;
     public string AvatarInitial => string.IsNullOrWhiteSpace(DisplayName)
         ? "?"
-        : DisplayName.Trim()[0].ToString().ToUpperInvariant();
+        : System.Globalization.StringInfo.GetNextTextElement(DisplayName.Trim()).ToUpperInvariant();
 
     [ObservableProperty]
     private bool _isActive;

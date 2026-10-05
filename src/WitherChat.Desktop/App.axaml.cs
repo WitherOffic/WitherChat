@@ -39,6 +39,10 @@ public partial class App : Application
     private TrayIcon? _trayIcon;
     private SingleInstanceActivationService? _singleInstanceActivationService;
     private bool _trayMenuRefreshPending;
+    private WindowsObsDockHost? _obsDockHost;
+    private WindowsObsDockHost? _obsDonationDockHost;
+    private ObsDockIpcService? _obsDockIpcService;
+    internal static ObsDockRequest? InitialObsDockRequest { get; set; }
 
     public bool IsExitRequested { get; private set; }
     public bool IsSystemShutdownRequested { get; private set; }
@@ -142,9 +146,33 @@ public partial class App : Application
             // means the lifetime does not guarantee that the assigned main window is shown.
             // A normal launch must always present the UI once; subsequent close actions may
             // intentionally hide it according to the user's tray setting.
-            _mainWindow.PrepareWindowOpenAnimation();
-            _mainWindow.Show();
-            _ = _mainWindow.PlayWindowOpenAnimationAsync();
+            if (OperatingSystem.IsWindows())
+            {
+                _obsDockHost = new WindowsObsDockHost(_mainWindow, ShowMainWindow);
+                _obsDockIpcService = new ObsDockIpcService(async (request, cancellationToken) =>
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                        IsExitRequested ? "ERROR shutting-down" : HandleObsDockRequest(request),
+                        DispatcherPriority.Normal, cancellationToken));
+            }
+            if (InitialObsDockRequest is { } initialDock && _obsDockHost is not null)
+            {
+                var result = _obsDockHost.Handle(initialDock);
+                InitialObsDockRequest = null;
+                if (!result.StartsWith("OK ", StringComparison.Ordinal))
+                {
+                    AppDiagnostics.Write("OBS dock startup", new InvalidOperationException(result));
+                    _ = RequestExitAsync();
+                    // Do not allocate activation services or initialize the chat while exiting.
+                    base.OnFrameworkInitializationCompleted();
+                    return;
+                }
+            }
+            else
+            {
+                _mainWindow.PrepareWindowOpenAnimation();
+                _mainWindow.Show();
+                _ = _mainWindow.PlayWindowOpenAnimationAsync();
+            }
             _singleInstanceActivationService = new SingleInstanceActivationService(
                 () => Dispatcher.UIThread.Post(ShowMainWindow));
             _ = _mainViewModel.InitializeAsync();
@@ -216,9 +244,15 @@ public partial class App : Application
 
     public void ShowMainWindow()
     {
-        if (_mainWindow is null)
+        if (IsExitRequested || _mainWindow is null)
         {
             return;
+        }
+
+        if (_obsDockHost?.IsAttached == true)
+        {
+            _obsDonationDockHost?.Detach(show: true);
+            _obsDockHost.Detach(show: false);
         }
 
         if (!_mainWindow.IsVisible)
@@ -256,6 +290,16 @@ public partial class App : Application
         IsExitRequested = true;
         try
         {
+            if (_obsDockIpcService is not null)
+            {
+                var dockService = _obsDockIpcService;
+                _obsDockIpcService = null;
+                await dockService.DisposeAsync();
+            }
+            _obsDonationDockHost?.Dispose();
+            _obsDonationDockHost = null;
+            _obsDockHost?.Dispose();
+            _obsDockHost = null;
             if (_singleInstanceActivationService is not null)
             {
                 var activationService = _singleInstanceActivationService;
@@ -275,6 +319,7 @@ public partial class App : Application
                 viewModel.DonationWindowRequested -= OnDonationWindowRequested;
                 if (_donationAlertsWindow is not null)
                 {
+                    _donationAlertsWindow.ObsDockBackToChatRequested -= OnObsDockBackToChatRequested;
                     _donationAlertsWindow.CloseForApplicationExit();
                     _donationAlertsWindow = null;
                 }
@@ -320,10 +365,13 @@ public partial class App : Application
         {
             return;
         }
-        _donationAlertsWindow ??= new DonationAlertsWindow
+        EnsureDonationWindow();
+        if (_obsDockHost?.IsAttached == true)
         {
-            DataContext = _mainViewModel
-        };
+            if (_obsDonationDockHost?.IsAttached == true) _donationAlertsWindow!.Show();
+            _obsDockHost.ShowDonationsTab();
+            return;
+        }
         if (!_donationAlertsWindow.IsVisible)
         {
             _donationAlertsWindow.Show();
@@ -333,6 +381,32 @@ public partial class App : Application
             _donationAlertsWindow.WindowState = WindowState.Normal;
         }
         _donationAlertsWindow.Activate();
+    }
+
+    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_donationAlertsWindow))]
+    private void EnsureDonationWindow()
+    {
+        if (_donationAlertsWindow is not null) return;
+        _donationAlertsWindow = new DonationAlertsWindow { DataContext = _mainViewModel };
+        _donationAlertsWindow.ObsDockBackToChatRequested += OnObsDockBackToChatRequested;
+    }
+
+    private void OnObsDockBackToChatRequested(object? sender, EventArgs args) => _obsDonationDockHost?.ShowChatTab();
+
+    private string HandleObsDockRequest(ObsDockRequest request)
+    {
+        if (!request.Attach)
+        {
+            if (_obsDonationDockHost?.Owns(request) == true) return _obsDonationDockHost.Handle(request);
+            if (_obsDockHost?.Owns(request) == true) _obsDonationDockHost?.Detach(show: true);
+            return _obsDockHost?.Handle(request) ?? "ERROR shutting-down";
+        }
+        if (!request.Donations) return _obsDockHost?.Handle(request) ?? "ERROR shutting-down";
+        if (_obsDockHost?.OwnerProcessId != request.ProcessId || !WindowsObsDockHost.IsValidParent(request))
+            return "ERROR main-chat-not-attached";
+        EnsureDonationWindow();
+        _obsDonationDockHost ??= new WindowsObsDockHost(_donationAlertsWindow!, () => _donationAlertsWindow!.Show());
+        return _obsDonationDockHost.Handle(request);
     }
 
     private void TryCreateTrayIcon()

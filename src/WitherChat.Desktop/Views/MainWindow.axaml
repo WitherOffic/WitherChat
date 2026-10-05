@@ -99,6 +99,119 @@
             </Ellipse.Fill>
         </Ellipse>
 
+        <!-- A quiet, OBS-only caption: identity plus one menu, never the desktop avatar/header. -->
+        <Border x:Name="ObsDockToolbar" IsVisible="False" Height="36" Margin="4,0"
+                VerticalAlignment="Top" Background="{DynamicResource SurfaceBrush}" ZIndex="10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="8,0,0,0">
+                <StackPanel VerticalAlignment="Center" Spacing="1" ClipToBounds="True">
+                    <TextBlock x:Name="ObsDockAccountText" Text="{Binding ObsDockAccountSummary}"
+                               FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding ObsDockAccountSummary}" />
+                    <TextBlock x:Name="ObsDockChannelText" Text="{Binding ObsDockChannelSummary}"
+                               FontSize="10" Foreground="{DynamicResource MutedTextBrush}"
+                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ObsDockChannelSummary}" />
+                </StackPanel>
+                <Button x:Name="ObsDockMoreButton" Grid.Column="1" Classes="icon-button"
+                        Width="32" Height="32" MinWidth="32" MinHeight="32" Padding="0"
+                        AutomationProperties.AutomationId="ObsDockMoreButton"
+                        AutomationProperties.Name="{Binding Texts.MoreTools}" ToolTip.Tip="{Binding Texts.MoreTools}">
+                    <Button.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedRight" FlyoutPresenterClasses="header-tools-flyout">
+                            <Border x:Name="ObsDockMenuCard" Width="264" MaxHeight="232"
+                                    Background="{DynamicResource MenuSurfaceBrush}" Padding="6"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12">
+                                <Grid RowDefinitions="Auto,*">
+                                    <TextBlock Text="{Binding Texts.MoreTools}" Margin="8,4,8,6"
+                                               FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                                    <ScrollViewer x:Name="ObsDockMenuScrollViewer" Grid.Row="1"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <StackPanel Spacing="1">
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockChannelsButton"
+                                            Command="{Binding ToggleChannelEditorCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.Channels}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockConnectButton"
+                                            Command="{Binding OpenConnectPanelCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.ConnectTwitch}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockSettingsButton"
+                                            Command="{Binding ToggleSettingsCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.Settings}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockFiltersButton"
+                                            Command="{Binding ToggleFiltersCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.Filters}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockLogsButton"
+                                            Command="{Binding OpenLogsCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.ChatLogs}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Border Height="1" Margin="6,5" Background="{DynamicResource BorderBrush}" />
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockDonationButton"
+                                            Command="{Binding OpenDonationWindowCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.OpenDonationWindow}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockClipButton"
+                                            ToolTip.Tip="{Binding TwitchClipButtonTip}"
+                                            Command="{Binding CreateTwitchClipCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.CreateTwitchClip}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockEventsButton"
+                                            Command="{Binding OpenStreamEventsCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.StreamEvents}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockMomentsButton"
+                                            Command="{Binding OpenMomentsPanelCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.StreamMoments}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Border Height="1" Margin="6,5" Background="{DynamicResource BorderBrush}" IsVisible="{Binding CanModerateAny}" />
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockModerationButton"
+                                            IsVisible="{Binding CanModerateAny}"
+                                            Command="{Binding OpenModerationPanelCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.Moderation}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockProtectionButton"
+                                            IsVisible="{Binding CanModerate}"
+                                            Command="{Binding OpenProtectionPanelCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.StreamProtection}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Border Height="1" Margin="6,5" Background="{DynamicResource BorderBrush}" IsVisible="{Binding CanHeaderDisconnect}" />
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockReconnectButton"
+                                            IsVisible="{Binding IsAccountConnected}"
+                                            Command="{Binding ReconnectCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding Texts.Reconnect}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                    <Button Classes="header-overflow-item" Height="NaN" MinHeight="34" MinWidth="0" Padding="8,6"
+                                            AutomationProperties.AutomationId="ObsDockDisconnectButton"
+                                            IsVisible="{Binding CanHeaderDisconnect}"
+                                            Command="{Binding HeaderDisconnectCommand}" Click="ObsDockMenuItem_OnClick">
+                                        <TextBlock Text="{Binding HeaderDisconnectTip}" TextWrapping="Wrap" FontSize="13" />
+                                    </Button>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+                        </Flyout>
+                    </Button.Flyout>
+                    <Path Data="M3,5 H19 M3,11 H19 M3,17 H19" Width="16" Height="16"
+                          Stroke="{DynamicResource SecondaryTextBrush}" StrokeThickness="1.6" Stretch="Uniform" />
+                </Button>
+            </Grid>
+        </Border>
+
         <Border x:Name="TitleBarPanel"
                 Height="42"
                 VerticalAlignment="Top"
@@ -396,12 +509,21 @@
                                 <Flyout Placement="BottomEdgeAlignedRight"
                                         FlyoutPresenterClasses="header-tools-flyout">
                                     <Border x:Name="HeaderMoreToolsCard"
-                                            Background="{DynamicResource SurfaceRaisedBrush}"
+                                            Background="{DynamicResource MenuSurfaceBrush}"
                                             BorderBrush="{DynamicResource JumpLatestGlassBorderBrush}"
                                             BorderThickness="1" CornerRadius="16" Padding="7"
                                             RenderTransformOrigin="100%,0%"
                                             BoxShadow="0 16 38 2 #78000000">
                                         <StackPanel Spacing="3">
+                                            <Button Classes="header-overflow-item" IsVisible="{Binding IsObsDockMode}"
+                                                    AutomationProperties.AutomationId="ObsDockDonationMenuItem"
+                                                    Content="{Binding Texts.OpenDonationWindow}" Command="{Binding OpenDonationWindowCommand}"
+                                                    Click="HeaderMoreTool_OnClick" />
+                                            <Button Classes="header-overflow-item" IsVisible="{Binding IsObsDockMode}"
+                                                    AutomationProperties.AutomationId="ObsDockClipMenuItem"
+                                                    Content="{Binding Texts.CreateTwitchClip}" ToolTip.Tip="{Binding TwitchClipButtonTip}"
+                                                    Command="{Binding CreateTwitchClipCommand}"
+                                                    Click="HeaderMoreTool_OnClick" />
                                             <TextBlock Text="{Binding Texts.MoreTools}"
                                                        Margin="10,5,10,4" FontSize="11"
                                                        FontWeight="SemiBold"
@@ -584,17 +706,19 @@
                 </Grid>
             </Button>
 
-            <Border Grid.Row="2" Classes="subtle-card" Padding="10"
+            <Border x:Name="MainFiltersPanel" Grid.Row="2" Classes="subtle-card" Padding="10"
                     Margin="0,2,0,0"
                     IsVisible="{Binding IsFiltersVisible}">
+                <ScrollViewer x:Name="MainFiltersScrollViewer" HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Disabled">
                 <StackPanel Spacing="8">
                     <WrapPanel VerticalAlignment="Center">
-                        <TextBox Width="240" Height="40" Margin="0,0,10,0"
+                        <TextBox x:Name="MainMessageSearchBox" Width="240" Height="40" Margin="0,0,10,0"
                                  AutomationProperties.AutomationId="MessageSearchInput"
                                  AutomationProperties.Name="{Binding Texts.SearchMessages}"
                                  Text="{Binding MessageSearchText}"
                                  PlaceholderText="{Binding Texts.SearchMessages}" />
-                        <TextBox Width="170" Height="40" Margin="0,0,10,0"
+                        <TextBox x:Name="MainUserFilterBox" Width="170" Height="40" Margin="0,0,10,0"
                                  AutomationProperties.AutomationId="UserFilterInput"
                                  AutomationProperties.Name="{Binding Texts.FilterByUser}"
                                  Text="{Binding UserFilter}"
@@ -646,6 +770,7 @@
                         </StackPanel>
                     </ScrollViewer>
                 </StackPanel>
+                </ScrollViewer>
             </Border>
 
             <Border x:Name="ChatViewportCard"
@@ -1345,18 +1470,19 @@
 
                     <Border Grid.Row="2"
                             Classes="subtle-card"
-                            Padding="24"
+                            Padding="{Binding ChatEmptyCardPadding}"
                             MaxWidth="580"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             IsVisible="{Binding ShowChatEmptyState}">
                         <StackPanel>
                             <TextBlock Text="{Binding Texts.ChatEmptyTitle}"
-                                       FontSize="18"
+                                       FontSize="{Binding ChatEmptyTitleSize}"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap"
                                        TextAlignment="Center" />
                             <TextBlock Text="{Binding ChatEmptyText}"
+                                       IsVisible="{Binding !IsObsDockMode}"
                                        Foreground="{DynamicResource SecondaryTextBrush}"
                                        TextWrapping="Wrap"
                                        TextAlignment="Center"
@@ -1366,7 +1492,7 @@
 
                     <Border x:Name="WelcomeCard" Grid.Row="2"
                             Classes="subtle-card"
-                            Padding="28"
+                            Padding="{Binding WelcomeCardPadding}"
                             Width="{Binding WelcomeCardWidth}"
                             MaxWidth="{Binding $parent[Grid].Bounds.Width}"
                             HorizontalAlignment="Center"
@@ -1377,17 +1503,19 @@
                                       VerticalScrollBarVisibility="Auto">
                         <StackPanel x:Name="WelcomeContent">
                             <TextBlock Text="WitherChat"
-                                       FontSize="24"
+                                       FontSize="{Binding WelcomeTitleSize}"
                                        FontWeight="SemiBold"
                                        TextAlignment="Center" />
                             <TextBlock Text="{Binding Texts.SignInHelp}"
+                                       IsVisible="{Binding !IsObsDockMode}"
                                        Foreground="{DynamicResource SecondaryTextBrush}"
                                        TextWrapping="Wrap"
                                        TextAlignment="Center"
-                                       Margin="0,10,0,22" />
+                                       Margin="{Binding WelcomeDescriptionMargin}" />
                             <Button x:Name="WelcomeActionButton" Classes="primary"
                                     Content="{Binding WelcomeActionText}"
                                     Command="{Binding OpenConnectPanelCommand}"
+                                    Margin="{Binding WelcomeActionMargin}"
                                     Width="210" MaxWidth="{Binding #WelcomeContent.Bounds.Width}"
                                     HorizontalAlignment="Center" />
                         </StackPanel>
@@ -1505,14 +1633,15 @@
 
             <Grid x:Name="ComposerPanel"
                   Grid.Row="6" IsVisible="{Binding ShowComposerPanel}">
-                <Border Classes="subtle-card composer-panel" Padding="8" MinHeight="76"
+                <Border Classes="subtle-card composer-panel" Padding="{Binding ComposerCardPadding}" MinHeight="{Binding ComposerCardMinHeight}"
                         IsVisible="{Binding ShowMessageComposer}">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBox x:Name="ComposerTextBox"
                                  Classes="composer"
                                  AutomationProperties.AutomationId="ComposerInput"
                                  AutomationProperties.Name="{Binding Texts.Chat}"
-                                 Grid.Column="0" MinHeight="56"
+                                 Grid.Column="0" MinHeight="{Binding ComposerInputMinHeight}"
+                                 Padding="{Binding ComposerInputPadding}"
                                  AcceptsReturn="False" TextWrapping="NoWrap"
                                  MaxLength="500"
                                  ScrollViewer.HorizontalScrollBarVisibility="Hidden"
@@ -1524,6 +1653,8 @@
                                  KeyDown="ComposerTextBox_OnKeyDown" />
                         <Button Grid.Column="1"
                                 Classes="primary composer-send"
+                                Width="{Binding ComposerSendSize}" Height="{Binding ComposerSendSize}"
+                                MinWidth="{Binding ComposerSendSize}" MinHeight="{Binding ComposerSendSize}"
                                 AutomationProperties.AutomationId="SendMessageButton"
                                 AutomationProperties.Name="{Binding Texts.Send}"
                                 Margin="8,0,0,0"
@@ -1589,6 +1720,7 @@
         </Grid>
 
         <TextBlock Text="{Binding VersionLabel}"
+                   IsVisible="{Binding !IsObsDockMode}"
                    HorizontalAlignment="Right"
                    VerticalAlignment="Bottom"
                    Margin="0,0,24,4"
@@ -1761,11 +1893,10 @@
                                                     <TextBlock Text="{Binding AvatarInitial}"
                                                                HorizontalAlignment="Center"
                                                                VerticalAlignment="Center"
-                                                               FontWeight="SemiBold"
-                                                               IsVisible="{Binding !HasProfileImage}" />
+                                                               FontWeight="SemiBold" />
                                                     <Image Source="{Binding ProfileImageResource.Image}"
                                                            Stretch="UniformToFill"
-                                                           IsVisible="{Binding HasProfileImage}" />
+                                                           IsVisible="{Binding ProfileImageResource.HasImage}" />
                                                 </Grid>
                                             </Border>
                                             <StackPanel Grid.Column="1"
@@ -1936,7 +2067,7 @@
                     <Grid x:Name="LogViewerHeader"
                           AutomationProperties.AutomationId="LogViewerHeader"
                           ColumnDefinitions="*,Auto,8,Auto,10,Auto">
-                        <StackPanel VerticalAlignment="Center">
+                        <StackPanel x:Name="LogHeaderIdentity" VerticalAlignment="Center">
                             <TextBlock Text="{Binding Texts.ChatLogs}"
                                        FontSize="24" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding ChatLogDirectory}"
@@ -1950,7 +2081,7 @@
                                 ToolTip.Tip="{Binding Texts.OpenLogsTutorial}"
                                 AutomationProperties.Name="{Binding Texts.OpenLogsTutorial}"
                                 AutomationProperties.AutomationId="ChatLogsHelpButton" />
-                        <Button Grid.Column="3"
+                        <Button x:Name="OpenLogFolderButton" Grid.Column="3"
                                 Classes="tool"
                                 AutomationProperties.AutomationId="OpenLogFolderButton"
                                 Command="{Binding OpenLogDirectoryCommand}"
@@ -1962,11 +2093,11 @@
                                       Stroke="{DynamicResource SecondaryTextBrush}"
                                       StrokeThickness="1.5"
                                       StrokeJoin="Round" />
-                                <TextBlock Text="{Binding Texts.OpenLogFolder}"
+                                <TextBlock x:Name="OpenLogFolderLabel" Text="{Binding Texts.OpenLogFolder}"
                                            VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
-                        <Button Grid.Column="5" Classes="icon-button log-close"
+                        <Button x:Name="CloseLogsButton" Grid.Column="5" Classes="icon-button log-close"
                                  AutomationProperties.AutomationId="CloseLogsButton"
                                  AutomationProperties.Name="{Binding Texts.Close}"
                                  Command="{Binding CloseLogsCommand}"
@@ -1979,7 +2110,9 @@
                         </Button>
                     </Grid>
 
-                    <Grid Grid.Row="2" ColumnDefinitions="250,14,*">
+                    <ScrollViewer x:Name="LogDockBodyScrollViewer" Grid.Row="2"
+                                  HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled">
+                    <Grid x:Name="LogViewerBodyGrid" ColumnDefinitions="250,14,*">
                         <Border x:Name="LogViewerSidebar"
                                 AutomationProperties.AutomationId="LogViewerSidebar"
                                 Classes="subtle-card" Padding="12">
@@ -2074,7 +2207,7 @@
                                 Padding="0"
                                 ClipToBounds="True">
                             <Grid RowDefinitions="Auto,1,Auto,1,*">
-                                <Grid Margin="18,16,18,14"
+                                <Grid x:Name="LogSelectedHeaderGrid" Margin="18,16,18,14"
                                       ColumnDefinitions="*,Auto">
                                     <StackPanel x:Name="SelectedLogHeader"
                                                 VerticalAlignment="Center">
@@ -2225,12 +2358,14 @@
                                     </ListBox.ItemTemplate>
                                 </ListBox>
                                 <TextBlock Grid.Row="4" Text="{Binding Texts.NoChatLogs}"
+                                           TextWrapping="Wrap" TextAlignment="Center" Margin="8"
                                            IsVisible="{Binding !HasChatLogFiles}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Foreground="{DynamicResource MutedTextBrush}" />
                             </Grid>
                         </Border>
                     </Grid>
+                    </ScrollViewer>
                 </Grid>
             </Border>
         </Border>
@@ -2270,28 +2405,28 @@
                                   Width="14" Height="14" />
                         </Button>
                     </Grid>
-                    <StackPanel x:Name="StreamEventFiltersPanel" Grid.Row="2" Orientation="Horizontal" Spacing="6">
-                        <Button Classes.moderation-tab="True"
+                    <WrapPanel x:Name="StreamEventFiltersPanel" Grid.Row="2">
+                        <Button Margin="0,0,6,0" Classes.moderation-tab="True"
                                 Classes.selected="{Binding IsAllStreamEventsSelected}"
                                 Content="{Binding Texts.EventFilterAll}"
                                 Command="{Binding SetStreamEventFilterCommand}"
                                 CommandParameter="0" />
-                        <Button Classes.moderation-tab="True"
+                        <Button Margin="0,0,6,0" Classes.moderation-tab="True"
                                 Classes.selected="{Binding IsTwitchStreamEventsSelected}"
                                 Content="{Binding Texts.EventFilterTwitch}"
                                 Command="{Binding SetStreamEventFilterCommand}"
                                 CommandParameter="1" />
-                        <Button Classes.moderation-tab="True"
+                        <Button Margin="0,0,6,0" Classes.moderation-tab="True"
                                 Classes.selected="{Binding IsYouTubeStreamEventsSelected}"
                                 Content="{Binding Texts.EventFilterYouTube}"
                                 Command="{Binding SetStreamEventFilterCommand}"
                                 CommandParameter="2" />
-                        <Button Classes.moderation-tab="True"
+                        <Button Margin="0" Classes.moderation-tab="True"
                                 Classes.selected="{Binding IsPaidStreamEventsSelected}"
                                 Content="{Binding Texts.EventFilterDonations}"
                                 Command="{Binding SetStreamEventFilterCommand}"
                                 CommandParameter="3" />
-                    </StackPanel>
+                    </WrapPanel>
                     <Border Grid.Row="4" Classes="subtle-card" Padding="8">
                         <Grid>
                             <ListBox ItemsSource="{Binding VisibleStreamEvents}"
@@ -2335,6 +2470,7 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
                             <TextBlock Text="{Binding Texts.NoStreamEvents}"
+                                       TextWrapping="Wrap" TextAlignment="Center" Margin="8"
                                        IsVisible="{Binding !HasVisibleStreamEvents}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Foreground="{DynamicResource MutedTextBrush}" />
@@ -2577,26 +2713,40 @@
                             </Grid>
                         </StackPanel>
                     </Border>
-                    <Border x:Name="ClearChatConfirmationCard"
-                            AutomationProperties.AutomationId="ClearChatConfirmationCard"
-                            KeyboardNavigation.TabNavigation="Cycle"
-                            Grid.RowSpan="5" Background="#B8121620"
-                            IsVisible="{Binding IsClearChatConfirmationOpen}"
-                            CornerRadius="12" Padding="24">
-                        <StackPanel Width="420" MaxWidth="{Binding $parent[Window].Bounds.Width}"
-                                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
-                            <TextBlock Text="{Binding Texts.ProtectionClearConfirm}"
-                                       TextWrapping="Wrap" FontSize="17" FontWeight="SemiBold" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                                <Button Content="{Binding Texts.Cancel}"
-                                        Command="{Binding CancelClearChatCommand}" />
-                                <Button Classes="danger" Content="{Binding Texts.ProtectionClearChat}"
-                                        Command="{Binding ConfirmClearChatCommand}" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+
                 </Grid>
                 </ScrollViewer>
+                </Grid>
+            </Border>
+        </Border>
+
+        <Border x:Name="ClearChatConfirmationOverlay"
+                AutomationProperties.AutomationId="ClearChatConfirmationOverlay"
+                ZIndex="90" Background="#99000000"
+                IsVisible="{Binding IsClearChatConfirmationOpen}">
+            <Border x:Name="ClearChatConfirmationCard"
+                    AutomationProperties.AutomationId="ClearChatConfirmationCard"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    MaxWidth="460" MaxHeight="420"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                    Classes="card" Background="{DynamicResource PopupBrush}" Padding="24">
+                <Grid RowDefinitions="*,14,Auto">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <TextBlock Text="{Binding Texts.ProtectionClearConfirm}"
+                                   TextWrapping="Wrap" FontSize="17" FontWeight="SemiBold" />
+                    </ScrollViewer>
+                    <Grid Grid.Row="2" ColumnDefinitions="*,8,*">
+                        <Button HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="CancelClearChatButton"
+                                Command="{Binding CancelClearChatCommand}">
+                            <TextBlock Text="{Binding Texts.Cancel}" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
+                        <Button Grid.Column="2" Classes="danger" HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="ConfirmClearChatButton"
+                                Command="{Binding ConfirmClearChatCommand}">
+                            <TextBlock Text="{Binding Texts.ProtectionClearChat}" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Button>
+                    </Grid>
                 </Grid>
             </Border>
         </Border>
@@ -3075,6 +3225,7 @@
                                     </ListBox>
                                     <TextBlock Grid.Row="2"
                                                Text="{Binding Texts.NoModerationItems}"
+                                               TextWrapping="Wrap" TextAlignment="Center" Margin="8"
                                                IsVisible="{Binding !HasYouTubeBans}"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center"
@@ -4261,25 +4412,25 @@
                                                   IsChecked="{Binding DonationAlertsAutoOpenWindow}">
                                             <TextBlock Text="{Binding Texts.AutoOpenDonationWindow}" TextWrapping="Wrap" />
                                         </CheckBox>
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                                             <Ellipse Width="8" Height="8" Fill="{Binding DonationAlertsStatusBrush}"
                                                      VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding DonationAlertsAccountLabel}"
+                                            <TextBlock Grid.Column="1" Text="{Binding DonationAlertsAccountLabel}" TextWrapping="Wrap"
                                                        FontWeight="SemiBold" VerticalAlignment="Center" />
-                                        </StackPanel>
+                                        </Grid>
                                         <TextBlock Text="{Binding DonationAlertsStatus}"
                                                    IsVisible="{Binding ShowDonationAlertsStatusDetail}"
                                                    FontSize="12" TextWrapping="Wrap"
                                                    Foreground="{DynamicResource MutedTextBrush}" />
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                                             <Ellipse Width="8" Height="8"
                                                      Fill="{Binding DonationAlertsObsControlBrush}"
                                                      VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding DonationAlertsObsControlStatus}"
+                                            <TextBlock Grid.Column="1" Text="{Binding DonationAlertsObsControlStatus}"
                                                        FontSize="12" TextWrapping="Wrap"
                                                        Foreground="{DynamicResource MutedTextBrush}"
                                                        VerticalAlignment="Center" />
-                                        </StackPanel>
+                                        </Grid>
                                         <TextBlock Text="{Binding DonationControlError}"
                                                    IsVisible="{Binding HasDonationControlError}"
                                                    FontSize="12" TextWrapping="Wrap"
@@ -4389,6 +4540,43 @@
                                         <TextBlock Text="{Binding Texts.ObsOverlay}"
                                                    FontSize="18" FontWeight="SemiBold"
                                                    Margin="0,0,0,12" />
+                                        <Border Name="ObsPluginSettingsCard" Classes="subtle-card" Padding="14" Margin="0,0,0,18">
+                                            <StackPanel Spacing="8">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Text="{Binding Texts.ObsPluginTitle}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                    <Button Name="ObsPluginHelpButton" Grid.Column="1" Classes="context-help" Content="?"
+                                                            Command="{Binding StartContextTutorialCommand}" CommandParameter="ObsPlugin"
+                                                            AutomationProperties.Name="{Binding Texts.OpenSettingsTutorial}" />
+                                                </Grid>
+                                                <TextBlock Name="ObsPluginStatusText" Text="{Binding ObsPluginStatus}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding ObsPluginDirectory}" TextWrapping="Wrap" FontSize="11"
+                                                           Foreground="{DynamicResource MutedTextBrush}" />
+                                                <WrapPanel>
+                                                    <Button Name="InstallObsPluginButton" Classes="primary"
+                                                            Content="{Binding ObsPluginInstallLabel}" Command="{Binding InstallObsPluginCommand}"
+                                                            Margin="0,0,8,8" />
+                                                    <Button Content="{Binding Texts.ObsPluginCheck}" Command="{Binding RefreshObsPluginCommand}"
+                                                            Margin="0,0,8,8" />
+                                                    <Button Name="RemoveObsPluginButton" Content="{Binding Texts.ObsPluginRemove}"
+                                                            Command="{Binding BeginRemoveObsPluginCommand}" Margin="0,0,8,8" />
+                                                    <Button Content="{Binding Texts.ObsPluginChooseFolder}" Click="BrowseObsPluginFolder_OnClick"
+                                                            IsEnabled="{Binding CanManageObsPlugin}" Margin="0,0,0,8" />
+                                                </WrapPanel>
+                                                <Border Classes="subtle-card" Padding="10" IsVisible="{Binding IsObsPluginRemovalConfirmationOpen}">
+                                                    <StackPanel Spacing="8">
+                                                        <TextBlock Text="{Binding Texts.ObsPluginRemovalConfirm}" TextWrapping="Wrap" FontSize="12" />
+                                                        <WrapPanel>
+                                                            <Button Name="ConfirmRemoveObsPluginButton" Content="{Binding Texts.ObsPluginConfirmRemove}"
+                                                                    Command="{Binding ConfirmRemoveObsPluginCommand}" Margin="0,0,8,8" />
+                                                            <Button Content="{Binding Texts.ObsPluginCancelRemove}"
+                                                                    Command="{Binding CancelRemoveObsPluginCommand}" Margin="0,0,0,8" />
+                                                        </WrapPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                                <TextBlock Name="ObsPluginNoticeText" Text="{Binding ObsPluginNotice}" TextWrapping="Wrap"
+                                                           FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                            </StackPanel>
+                                        </Border>
                                         <CheckBox Classes="settings-check"
                                                   IsChecked="{Binding EnableObsOverlay}">
                                             <TextBlock Text="{Binding Texts.EnableObsOverlay}" TextWrapping="Wrap" />
@@ -5082,12 +5270,13 @@
                                 </LinearGradientBrush>
                             </Border.Background>
                         </Border>
+                        <Grid Grid.Row="1" RowDefinitions="*,Auto">
                         <ScrollViewer x:Name="OnboardingContentScrollViewer"
-                                      Grid.Row="1"
+                                      Grid.Row="0"
                                       HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollBarVisibility="Auto">
-                        <StackPanel Margin="26,22,26,24" Spacing="17">
-                            <Grid ColumnDefinitions="52,*,Auto">
+                        <StackPanel x:Name="OnboardingScrollableBody" Margin="26,22,26,0" Spacing="17">
+                            <Grid x:Name="OnboardingGuideHeader" ColumnDefinitions="52,*,Auto">
                                 <Border Width="44" Height="44"
                                         CornerRadius="15"
                                         Background="{DynamicResource AccentGradientBrush}"
@@ -5129,7 +5318,7 @@
                                         Spacing="17"
                                         RenderTransformOrigin="50%,50%">
                                 <StackPanel Spacing="9">
-                                    <TextBlock Text="{Binding OnboardingTitle}"
+                                    <TextBlock x:Name="OnboardingTitleText" Text="{Binding OnboardingTitle}"
                                                FontSize="25"
                                                FontWeight="SemiBold"
                                                TextWrapping="Wrap"
@@ -5161,6 +5350,9 @@
                                 </Border>
                             </StackPanel>
 
+                        </StackPanel>
+                        </ScrollViewer>
+                        <StackPanel x:Name="OnboardingFixedFooter" Grid.Row="1" Margin="26,17,26,24" Spacing="17">
                             <ProgressBar Classes="onboarding-progress"
                                          Minimum="0"
                                          Maximum="{Binding OnboardingTotalSteps}"
@@ -5194,9 +5386,15 @@
                                                TextWrapping="Wrap"
                                                TextAlignment="Center" />
                                 </Button>
+                                <TextBlock x:Name="OnboardingShortProgress"
+                                           Grid.Row="2" Grid.Column="2"
+                                           Text="{Binding OnboardingProgressText}"
+                                           IsVisible="False" IsHitTestVisible="False"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" />
                             </Grid>
                         </StackPanel>
-                        </ScrollViewer>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>

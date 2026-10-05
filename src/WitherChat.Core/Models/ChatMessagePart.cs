@@ -48,7 +48,8 @@ public sealed record ChatMessagePart
             return ImageUri;
         }
 
-        var animation = ImageUri?.AbsolutePath.Contains("/animated/", StringComparison.OrdinalIgnoreCase) == true
+        var animation = ImageUri is { IsAbsoluteUri: true } &&
+                        ImageUri.AbsolutePath.Contains("/animated/", StringComparison.OrdinalIgnoreCase)
             ? "animated"
             : "static";
         return new Uri(

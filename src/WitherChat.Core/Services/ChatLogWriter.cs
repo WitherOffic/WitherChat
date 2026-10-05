@@ -90,12 +90,11 @@ public sealed class ChatLogWriter : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
         {
-            return;
+            _queue.Writer.TryComplete();
         }
 
-        _queue.Writer.TryComplete();
         await _writerTask.ConfigureAwait(false);
     }
 
@@ -207,8 +206,9 @@ public sealed class ChatLogWriter : IAsyncDisposable
         {
             try
             {
-                metadata = JsonSerializer.Deserialize<SessionMetadata>(await File.ReadAllTextAsync(path)
-                    .ConfigureAwait(false));
+                metadata = JsonSerializer.Deserialize<SessionMetadata>(
+                    await File.ReadAllTextAsync(path).ConfigureAwait(false),
+                    MetadataJsonOptions);
             }
             catch (Exception exception) when (exception is IOException or JsonException)
             {
@@ -227,11 +227,14 @@ public sealed class ChatLogWriter : IAsyncDisposable
             LogStartedAtUtc = first.Timestamp.ToUniversalTime(),
             AppVersion = AppVersion.Current
         };
-        if (metadata.BroadcasterId.Length == 0)
+        if (string.IsNullOrWhiteSpace(metadata.BroadcasterId))
         {
             metadata.BroadcasterId = first.BroadcasterId;
         }
-        metadata.MessageCount += messages.Count;
+        var previousCount = Math.Max(0, metadata.MessageCount);
+        metadata.MessageCount = previousCount > long.MaxValue - messages.Count
+            ? long.MaxValue
+            : previousCount + messages.Count;
         var temporaryPath = path + ".tmp";
         await File.WriteAllTextAsync(
                 temporaryPath,

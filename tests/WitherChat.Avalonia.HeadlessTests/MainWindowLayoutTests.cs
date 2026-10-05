@@ -1544,7 +1544,7 @@ public sealed partial class MainWindowLayoutTests
         var viewModel = fixture.ViewModel;
         Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
 
-        Assert.Equal("0.5.1A", WitherChat.Core.AppVersion.Current);
+        Assert.Equal("0.6", WitherChat.Core.AppVersion.Current);
         Assert.Equal(860, window.MinWidth);
         Assert.Equal(560, window.MinHeight);
 
@@ -1577,7 +1577,13 @@ public sealed partial class MainWindowLayoutTests
         Assert.Equal(new CornerRadius(16), moreToolsContent.CornerRadius);
         Assert.Equal(new Thickness(1), moreToolsContent.BorderThickness);
         Assert.NotNull(moreToolsContent.Background);
-        var moreToolItems = moreToolsContent.GetLogicalDescendants().OfType<Button>().ToArray();
+        var allMoreToolItems = moreToolsContent.GetLogicalDescendants().OfType<Button>().ToArray();
+        Assert.Equal(8, allMoreToolItems.Length);
+        var dockOnlyItems = allMoreToolItems.Where(item => AutomationProperties.GetAutomationId(item)
+            is "ObsDockDonationMenuItem" or "ObsDockClipMenuItem").ToArray();
+        Assert.Equal(2, dockOnlyItems.Length);
+        Assert.All(dockOnlyItems, item => Assert.False(item.IsVisible));
+        var moreToolItems = allMoreToolItems.Except(dockOnlyItems).ToArray();
         Assert.Equal(6, moreToolItems.Length);
         Assert.All(moreToolItems, item => Assert.NotNull(item.Command));
         Assert.All(moreToolItems, item => Assert.Equal(new CornerRadius(12), item.CornerRadius));
@@ -1721,6 +1727,14 @@ public sealed partial class MainWindowLayoutTests
         Assert.False(viewModel.IsSettingsOpen);
         RenderAndAssert(window, 860, 560, "onboarding-compact-ru-dark-860x560.png");
 
+        for (var step = 10; step < viewModel.OnboardingTotalSteps; step++)
+        {
+            viewModel.NextOnboardingCommand.Execute(null);
+            await Task.Delay(160);
+            Assert.Equal(step, viewModel.OnboardingStep);
+            Assert.True(viewModel.IsOverlaySettingsSelected);
+            RenderAndAssert(window, 1100, 760, $"onboarding-obs-{step}-ru-dark-1100x760.png");
+        }
         viewModel.NextOnboardingCommand.Execute(null);
         await Task.Delay(30);
         Assert.False(viewModel.IsOnboardingOpen);
@@ -2387,14 +2401,15 @@ public sealed partial class MainWindowLayoutTests
         await Task.Delay(1420);
         Assert.False(viewModel.IsChannelEditorOpen);
 
-        for (var step = 2; step <= 9; step++)
+        for (var step = 2; step < viewModel.OnboardingTotalSteps; step++)
         {
             viewModel.NextOnboardingCommand.Execute(null);
             await Task.Delay(1420);
+            await WaitForOnboardingFocusSettledAsync(window, TestContext.Current.CancellationToken);
             Assert.Equal(step, viewModel.OnboardingStep);
             Assert.True(card.Opacity > 0.99);
             Assert.True(focus.Width > 20);
-            Assert.Equal(step is 7 or 8, viewModel.IsSettingsOpen);
+            Assert.Equal(step is 7 or 8 or 10 or 11, viewModel.IsSettingsOpen);
             Assert.Equal(step == 6, viewModel.IsLogViewerOpen);
             if (step == 7)
             {
@@ -2403,14 +2418,12 @@ public sealed partial class MainWindowLayoutTests
                 Assert.NotNull(settingsViewport);
                 var viewportOrigin = settingsViewport!.TranslatePoint(new Point(), window);
                 Assert.NotNull(viewportOrigin);
-                Assert.InRange(
-                    Canvas.GetTop(focus),
-                    viewportOrigin!.Value.Y - 0.5,
-                    viewportOrigin.Value.Y + 0.5);
-                Assert.InRange(
-                    focus.Height,
-                    settingsViewport.Viewport.Height - 0.5,
-                    settingsViewport.Viewport.Height + 0.5);
+                var target = window.FindControl<Button>("CopyOverlayUrlButton")!;
+                var targetOrigin = target.TranslatePoint(new Point(), window)!.Value;
+                Assert.InRange(Canvas.GetTop(focus), Math.Max(viewportOrigin!.Value.Y, targetOrigin.Y - 5) - 0.5,
+                    Math.Max(viewportOrigin.Value.Y, targetOrigin.Y - 5) + 0.5);
+                Assert.True(Canvas.GetTop(focus) + focus.Height <= viewportOrigin.Value.Y + settingsViewport.Viewport.Height + 0.5);
+                Assert.InRange(focus.Width, target.Bounds.Width + 9, target.Bounds.Width + 11);
             }
             if (step == 8)
             {
@@ -2567,7 +2580,7 @@ public sealed partial class MainWindowLayoutTests
         viewModel.StartInitialOnboarding();
         Assert.True(viewModel.IsOnboardingOpen);
         Assert.Equal(TutorialTopic.QuickStart, viewModel.ActiveTutorialTopic);
-        Assert.Equal(10, viewModel.OnboardingTotalSteps);
+        Assert.Equal(TutorialCatalog.QuickStartStepCount, viewModel.OnboardingTotalSteps);
         viewModel.SkipOnboardingCommand.Execute(null);
     }
 
@@ -3563,10 +3576,9 @@ public sealed partial class MainWindowLayoutTests
             Environment.GetEnvironmentVariable("WITHERCHAT_UPDATE_BASELINES"),
             "1",
             StringComparison.Ordinal);
-        var updateNamedBaseline = string.Equals(
-            Environment.GetEnvironmentVariable("WITHERCHAT_UPDATE_BASELINE"),
-            baselineName,
-            StringComparison.Ordinal);
+        var updateNamedBaseline = (Environment.GetEnvironmentVariable("WITHERCHAT_UPDATE_BASELINE") ?? string.Empty)
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(baselineName, StringComparer.Ordinal);
         if (updateAllBaselines || updateNamedBaseline)
         {
             Directory.CreateDirectory(sourceDirectory);
